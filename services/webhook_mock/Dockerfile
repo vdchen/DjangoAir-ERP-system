@@ -5,10 +5,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+RUN groupadd --system appgroup \
+    && useradd --system --gid appgroup --home-dir /app appuser \
+    && chown appuser:appgroup /app
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY --chown=appuser:appgroup . .
+
+USER appuser
 
 EXPOSE 5002
 

@@ -6,6 +6,7 @@
 - [Architecture & Module Decomposition](docs/ARCHITECTURE.md)
 - [UML Class, State & Sequence Diagrams](docs/UML.md)
 - [REST, WebSocket & Webhook API Contracts](docs/API.md)
+- [Enterprise Multi-Environment & Branch Promotion Guide](docs/ENVIRONMENTS.md)
 - [Prioritized Development Roadmap](docs/ROADMAP.md)
 - [Contributing Guidelines](CONTRIBUTING.md)
 
@@ -61,11 +62,18 @@ On startup, the backend automatically runs PostgreSQL migrations and seeds demo 
 ## Running Tests & Quality Checks
 
 ```bash
-# Lint backend with ruff
+# Lint & SAST security scan (ruff + bandit)
 make lint
+make security
 
-# Run Django pytest suite (with PostgreSQL + coverage) and Flask pytest suites
-make test
+# Run isolated test environment (ephemeral tmpfs PostgreSQL + Redis + coverage)
+make test-env
+
+# Validate all 5 Docker Compose environment configs (base, dev, test, staging, prod)
+make validate-envs
+
+# Run full development stack (live bind mounts, Mailpit, exposed Postgres/Redis)
+make up-dev
 
 # Build both independent Webpack Vue 3 frontends
 make build-frontend
@@ -73,6 +81,8 @@ make build-frontend
 # Run full end-to-end smoke check through Nginx against the running Docker stack
 make smoke
 ```
+
+See [docs/ENVIRONMENTS.md](docs/ENVIRONMENTS.md) for the full `test` / `dev` / `staging` / `prod` (`main`) matrix, branch promotion workflow, and GHCR CD pipeline details.
 
 ## License
 MIT — see [LICENSE](LICENSE).

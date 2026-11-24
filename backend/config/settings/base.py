@@ -4,6 +4,7 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
+APP_ENV = os.environ.get("APP_ENV", "dev")
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "djangoair-insecure-dev-secret-key")
 DEBUG = os.environ.get("DJANGO_DEBUG", "0") == "1"
 ALLOWED_HOSTS = [
@@ -73,6 +74,14 @@ DATABASES = {
         "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "djangoair_secret"),
         "HOST": os.environ.get("POSTGRES_HOST", "postgres"),
         "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+        "CONN_MAX_AGE": int(os.environ.get("DB_CONN_MAX_AGE", "60")),
+    }
+}
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "djangoair-default",
     }
 }
 
@@ -115,6 +124,16 @@ SPECTACULAR_SETTINGS = {
 }
 
 CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",")
+    if origin.strip()
+]
 
 # Redis & Celery
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
@@ -128,11 +147,13 @@ CELERY_RESULT_SERIALIZER = "json"
 
 # Email
 EMAIL_BACKEND = os.environ.get(
-    "EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend"
+    "EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
 )
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "mailpit")
 EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "1025"))
-EMAIL_USE_TLS = False
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "0") == "1"
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "tickets@djangoair.local")
 
 # Integrations / Webhooks
@@ -143,3 +164,25 @@ WEBHOOK_MOCK_URL = os.environ.get(
     "WEBHOOK_MOCK_URL", "http://webhook_mock:5002/mock-webhook/events"
 )
 WEBHOOK_TIMEOUT_SECONDS = int(os.environ.get("WEBHOOK_TIMEOUT_SECONDS", "5"))
+
+# Structured Logging
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {
+            "format": "[%(asctime)s] %(levelname)s %(name)s: %(message)s",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "standard",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": LOG_LEVEL,
+    },
+}

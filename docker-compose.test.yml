@@ -1,0 +1,29 @@
+# Isolated test environment override: ephemeral tmpfs DB/Redis and config.settings.test
+services:
+  postgres:
+    environment:
+      POSTGRES_DB: djangoair_test
+      POSTGRES_USER: djangoair_test
+      POSTGRES_PASSWORD: djangoair_test_secret
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes: !reset []
+
+  redis:
+    command: redis-server --save "" --appendonly no
+
+  mailpit:
+    profiles: ["disabled"]
+
+  backend:
+    env_file:
+      - ${ENV_FILE:-.env.test.example}
+    environment:
+      APP_ENV: test
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      POSTGRES_DB: djangoair_test
+      POSTGRES_USER: djangoair_test
+      POSTGRES_PASSWORD: djangoair_test_secret
+      POSTGRES_HOST: postgres
+      COVERAGE_FILE: /tmp/.coverage
+    command: pytest -v --cov=apps --cov-report=term-missing
