@@ -1,0 +1,40 @@
+# Development override: bind-mounted code, local DB/Redis inspection ports, Mailpit inbox
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  backend:
+    env_file:
+      - ${ENV_FILE:-.env.dev.example}
+    environment:
+      APP_ENV: dev
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      DJANGO_DEBUG: "1"
+    volumes:
+      - ./backend:/app
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+      python manage.py seed_demo_data &&
+      python manage.py runserver 0.0.0.0:8000"
+
+  celery_worker:
+    env_file:
+      - ${ENV_FILE:-.env.dev.example}
+    environment:
+      APP_ENV: dev
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+    volumes:
+      - ./backend:/app
+
+  mobile_ws:
+    volumes:
+      - ./services/mobile_ws:/app
+
+  webhook_mock:
+    volumes:
+      - ./services/webhook_mock:/app

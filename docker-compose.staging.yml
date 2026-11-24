@@ -1,0 +1,75 @@
+# Staging pre-production override: GHCR staging images, production-like settings, limits & restarts
+services:
+  postgres:
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    restart: unless-stopped
+
+  mailpit:
+    profiles: ["disabled"]
+
+  backend:
+    image: ghcr.io/${GHCR_REPO:-vdchen/djangoair-erp-system}/backend:${IMAGE_TAG:-staging}
+    env_file:
+      - ${ENV_FILE:-.env.staging.example}
+    environment:
+      APP_ENV: staging
+      DJANGO_SETTINGS_MODULE: config.settings.staging
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  celery_worker:
+    image: ghcr.io/${GHCR_REPO:-vdchen/djangoair-erp-system}/backend:${IMAGE_TAG:-staging}
+    env_file:
+      - ${ENV_FILE:-.env.staging.example}
+    environment:
+      APP_ENV: staging
+      DJANGO_SETTINGS_MODULE: config.settings.staging
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 384M
+
+  mobile_ws:
+    image: ghcr.io/${GHCR_REPO:-vdchen/djangoair-erp-system}/mobile_ws:${IMAGE_TAG:-staging}
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+
+  webhook_mock:
+    image: ghcr.io/${GHCR_REPO:-vdchen/djangoair-erp-system}/webhook_mock:${IMAGE_TAG:-staging}
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+
+  nginx:
+    image: ghcr.io/${GHCR_REPO:-vdchen/djangoair-erp-system}/nginx:${IMAGE_TAG:-staging}
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M

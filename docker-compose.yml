@@ -24,30 +24,27 @@ services:
   mailpit:
     image: axllent/mailpit:v1.20
     ports:
-      - "8025:8025"
+      - "${MAILPIT_PORT:-8025}:8025"
 
   backend:
     build:
       context: ./backend
     env_file:
-      - .env.example
+      - ${ENV_FILE:-.env.example}
     environment:
+      APP_ENV: ${APP_ENV:-dev}
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings.dev}
-      POSTGRES_HOST: postgres
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/1
-      EMAIL_HOST: mailpit
-      EMAIL_PORT: 1025
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-      mailpit:
-        condition: service_started
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health/"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health/ready/"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -57,15 +54,14 @@ services:
       context: ./backend
     command: celery -A config worker --loglevel=info
     env_file:
-      - .env.example
+      - ${ENV_FILE:-.env.example}
     environment:
+      APP_ENV: ${APP_ENV:-dev}
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings.dev}
-      POSTGRES_HOST: postgres
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/1
-      EMAIL_HOST: mailpit
-      EMAIL_PORT: 1025
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
     depends_on:
       backend:
         condition: service_healthy
@@ -76,8 +72,8 @@ services:
     build:
       context: ./services/mobile_ws
     environment:
-      REDIS_URL: redis://redis:6379/0
-      REDIS_EVENTS_CHANNEL: djangoair:events
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      REDIS_EVENTS_CHANNEL: ${REDIS_EVENTS_CHANNEL:-djangoair:events}
     depends_on:
       redis:
         condition: service_healthy
@@ -93,7 +89,7 @@ services:
       context: .
       dockerfile: nginx/Dockerfile
     ports:
-      - "8080:80"
+      - "${NGINX_PORT:-8080}:80"
     depends_on:
       backend:
         condition: service_healthy

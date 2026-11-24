@@ -2,13 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [main, dev, "feat/**"]
+    branches: [main, staging, dev, "feat/**"]
   pull_request:
-    branches: [main, dev]
+    branches: [main, staging, dev]
 
 jobs:
   backend:
-    name: Backend Lint & Pytest (PostgreSQL + Redis)
+    name: Backend Lint, Security & Pytest (PostgreSQL + Redis)
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -46,6 +46,9 @@ jobs:
       - name: Lint with ruff
         working-directory: backend
         run: ruff check .
+      - name: Static security analysis (bandit)
+        working-directory: backend
+        run: bandit -r apps config -ll
       - name: Check migrations are up to date
         working-directory: backend
         env:
@@ -57,6 +60,19 @@ jobs:
           POSTGRES_PORT: 5432
           REDIS_URL: redis://127.0.0.1:6379/0
         run: python manage.py makemigrations --check --dry-run
+      - name: Django production deployment security check
+        working-directory: backend
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.prod
+          DJANGO_SECRET_KEY: "ci-verified-random-secret-key-with-sufficient-entropy-for-deploy-checks-2026!"
+          DJANGO_ALLOWED_HOSTS: "djangoair.example.com"
+          POSTGRES_DB: djangoair_test
+          POSTGRES_USER: djangoair
+          POSTGRES_PASSWORD: djangoair_secret
+          POSTGRES_HOST: 127.0.0.1
+          POSTGRES_PORT: 5432
+          REDIS_URL: redis://127.0.0.1:6379/0
+        run: python manage.py check --deploy --tag security --fail-level WARNING
       - name: Run pytest with coverage
         working-directory: backend
         env:
@@ -105,9 +121,14 @@ jobs:
           test -f dist/staff/index.html
 
   docker-validate:
-    name: Docker Compose Config Validation
+    name: Multi-Environment Docker Compose Validation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate docker-compose.yml
-        run: docker compose config -q
+      - name: Validate base, dev, test, staging, and prod Compose configs
+        run: |
+          docker compose config -q
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml config -q
+          docker compose -f docker-compose.yml -f docker-compose.test.yml config -q
+          docker compose -f docker-compose.yml -f docker-compose.staging.yml config -q
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml config -q

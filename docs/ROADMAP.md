@@ -20,10 +20,11 @@
 - [ ] Frontend Vitest component tests + Playwright end-to-end browser tests in CI
 - [ ] CD Pipeline (`.github/workflows/cd.yml`) building and publishing versioned Docker images to GHCR
 
-## Iteration 3 — Enterprise Multi-Environment Setup (`test`, `dev`, `staging`, `main`/`prod`)
-- [ ] Dedicated Compose overrides: `docker-compose.dev.yml`, `docker-compose.test.yml`, `docker-compose.staging.yml`, `docker-compose.prod.yml`
-- [ ] Scoped environment templates: `.env.dev.example`, `.env.test.example`, `.env.staging.example`, `.env.prod.example`
-- [ ] Branch promotion workflow (`feature/*` -> `dev` -> `staging` -> `main`) with GitHub Environments, protected branches, and manual approval gates for production
+## Iteration 3 — Enterprise Multi-Environment Setup (`test`, `dev`, `staging`, `main`/`prod`) (Completed)
+- [x] Dedicated Compose overrides: `docker-compose.dev.yml`, `docker-compose.test.yml`, `docker-compose.staging.yml`, `docker-compose.prod.yml`
+- [x] Scoped environment templates: `.env.dev.example`, `.env.test.example`, `.env.staging.example`, `.env.prod.example`
+- [x] Hardened non-root containers, `config/settings/staging.py`, Kubernetes-style `/health/live/` & `/health/ready/` probes, `bandit` SAST + `check --deploy` in CI
+- [x] Branch promotion workflow (`feat/*` -> `dev` -> `staging` -> `main`) & GHCR multi-environment CD pipeline (`.github/workflows/cd.yml`) documented in [docs/ENVIRONMENTS.md](ENVIRONMENTS.md)
 
 ## Iteration 4 — 2026–2027 Production & Career-Differentiating Engineering
 - [ ] **Distributed Systems Reliability**: `Idempotency-Key` headers on booking/payment APIs, Transactional Outbox table for guaranteed Redis/Webhook emission, Celery Dead-Letter Queue (DLQ) + exponential backoff retries, webhook timestamp replay protection
