@@ -14,7 +14,7 @@
 ## Tech Stack
 | Layer | Technology |
 | :--- | :--- |
-| **Core ERP Backend** | Python 3.12, Django 5.1, Django REST Framework, SimpleJWT, drf-spectacular, ReportLab, Prometheus Client |
+| **Core ERP Backend** | Python 3.12, Django 5.2 LTS, Django REST Framework, SimpleJWT, drf-spectacular, ReportLab, Prometheus Client |
 | **Mock Microservices** | Flask 3, Flask-SocketIO (`gevent`), HMAC-SHA256 + Replay-Window Webhook Verifier |
 | **Database & Cache/Broker** | PostgreSQL 16, Redis 7 |
 | **Async Workers & Reliability** | Celery 5, Transactional Outbox + DLQ Replay, `Idempotency-Key` Deduplication, Mailpit |

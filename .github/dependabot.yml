@@ -18,6 +18,10 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    # Stay on Django 5.2 LTS (supported through April 2028) until simplejwt & full DRF ecosystem certify Django 6.x
+    ignore:
+      - dependency-name: "django"
+        versions: [">=6.0.0"]
 
   - package-ecosystem: "pip"
     directory: "/services/mobile_ws"
