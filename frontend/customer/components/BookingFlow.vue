@@ -340,10 +340,19 @@
         </div>
       </div>
 
-      <div class="bg-light rounded p-3 d-flex justify-content-between flex-wrap gap-2">
+      <div class="bg-light rounded p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <span>Transaction: <code>{{ confirmedResult.payment.transaction_id }}</code></span>
         <span>Invoice: <code>{{ confirmedResult.payment.invoice_number }}</code></span>
         <strong>Total Paid: ${{ confirmedResult.payment.amount }}</strong>
+        <a
+          id="download-invoice-pdf-btn"
+          :href="`/api/v1/payments/${confirmedResult.payment.id}/invoice.pdf`"
+          target="_blank"
+          rel="noopener"
+          class="btn btn-outline-primary btn-sm"
+        >
+          Download PDF Invoice
+        </a>
       </div>
 
       <div class="mt-4">

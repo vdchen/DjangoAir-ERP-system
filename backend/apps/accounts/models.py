@@ -116,3 +116,23 @@ class CustomerProfile(models.Model):
             raise ValueError("Insufficient customer balance.")
         self.refresh_from_db(fields=["balance"])
         return self.balance
+
+
+class SocialProvider(models.TextChoices):
+    GOOGLE = "GOOGLE", "Google"
+
+
+class SocialAccount(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="social_accounts")
+    provider = models.CharField(max_length=32, choices=SocialProvider.choices)
+    provider_uid = models.CharField(max_length=255)
+    extra_data = models.JSONField(default=dict, blank=True)
+    linked_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        unique_together = ("provider", "provider_uid")
+        ordering = ["-linked_at"]
+
+    def __str__(self) -> str:
+        return f"{self.provider}:{self.provider_uid} -> {self.user.email}"

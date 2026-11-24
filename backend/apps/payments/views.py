@@ -229,3 +229,22 @@ class CabinetBalanceTopUpView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class InvoicePdfView(APIView):
+    """Download an itemized PDF receipt/invoice for a payment."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, _request, pk):
+        from django.http import HttpResponse
+
+        from apps.bookings.pdf import generate_invoice_pdf
+
+        payment = get_object_or_404(Payment.objects.select_related("booking"), pk=pk)
+        pdf_bytes = generate_invoice_pdf(payment)
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = (
+            f'attachment; filename="invoice-{payment.invoice_number}.pdf"'
+        )
+        return response

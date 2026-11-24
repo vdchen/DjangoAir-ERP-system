@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     BookingCreateView,
     BookingDetailView,
+    CabinetBoardingPassPdfView,
     CabinetOnlineCheckInView,
     CabinetOverviewView,
     StaffCheckInView,
@@ -21,6 +22,11 @@ urlpatterns = [
         "cabinet/tickets/<str:ticket_code>/check-in/",
         CabinetOnlineCheckInView.as_view(),
         name="cabinet-online-checkin",
+    ),
+    path(
+        "cabinet/tickets/<str:ticket_code>/boarding-pass.pdf",
+        CabinetBoardingPassPdfView.as_view(),
+        name="cabinet-boarding-pass-pdf",
     ),
     path("staff/tickets/", StaffTicketListView.as_view(), name="staff-ticket-list"),
     path(
