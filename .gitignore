@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+ENV/
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+
+# Django
+*.log
+db.sqlite3
+staticfiles/
+media/
+
+# Node / Webpack
+node_modules/
+frontend/dist/
+npm-debug.log*
+
+# Environment & IDE
+.env
+.env.local
+.vscode/
+.idea/
+.DS_Store
