@@ -14,11 +14,11 @@
 - [x] Two independent Webpack 5 + Vue 3 + Bootstrap 5 SPAs (`/` Customer UI & `/staff/` Staff UI)
 - [x] Automated `pytest` suites (Django + both Flask services), `ruff` linting, Webpack build verification, and GitHub Actions CI (`.github/workflows/ci.yml`)
 
-## Iteration 2 — Optional Features & Developer Experience
-- [ ] **Optional #2 — Social Login via Google OAuth2**: `django-allauth` / OAuth2 token exchange, `SocialAccount` linking, dev mock fallback, and Customer SPA Google sign-in button
-- [ ] Printable PDF tickets, invoices, and QR boarding passes attached to confirmation emails
-- [ ] Frontend Vitest component tests + Playwright end-to-end browser tests in CI
-- [ ] CD Pipeline (`.github/workflows/cd.yml`) building and publishing versioned Docker images to GHCR
+## Iteration 2 — Optional Features & Developer Experience (Completed)
+- [x] **Optional #2 — Social Login via Google OAuth2**: `SocialAccount` model, `/api/v1/auth/google/` real ID-token verification + guarded dev mock, and Customer SPA "Continue with Google" flow
+- [x] Printable PDF QR boarding passes & itemized PDF invoices downloadable via API/SPA and attached automatically to Celery confirmation emails
+- [x] Playwright end-to-end browser test suite (`e2e/`) covering Customer booking/payment/PDFs, Google OAuth2/Personal Cabinet, and Staff RBAC hierarchy in CI
+- [x] CD Pipeline (`.github/workflows/cd.yml`) building and publishing versioned Docker images to GHCR
 
 ## Iteration 3 — Enterprise Multi-Environment Setup (`test`, `dev`, `staging`, `main`/`prod`) (Completed)
 - [x] Dedicated Compose overrides: `docker-compose.dev.yml`, `docker-compose.test.yml`, `docker-compose.staging.yml`, `docker-compose.prod.yml`

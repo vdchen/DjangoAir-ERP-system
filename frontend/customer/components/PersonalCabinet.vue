@@ -15,7 +15,7 @@
         <div class="da-card p-4">
           <h1 class="h4 fw-bold mb-2">Personal Cabinet</h1>
           <p class="text-muted small mb-4">
-            Sign in with your emailed booking credentials to view upcoming &amp; previous flights, balance, and complete online check-in.
+            Sign in with your emailed booking credentials or Google account to view upcoming &amp; previous flights, balance, online check-in, and QR PDF boarding passes.
           </p>
 
           <form @submit.prevent="login">
@@ -32,9 +32,63 @@
             </button>
           </form>
 
+          <!-- Optional #2: Google OAuth2 Social Login -->
+          <div v-if="googleConfig.enabled" class="border-top pt-3 mb-3">
+            <button
+              id="google-oauth-toggle-btn"
+              type="button"
+              class="btn btn-outline-dark w-100 d-flex align-items-center justify-content-center gap-2 fw-semibold"
+              @click="showGooglePanel = !showGooglePanel"
+            >
+              <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+              </svg>
+              Continue with Google
+            </button>
+
+            <div v-if="showGooglePanel" class="bg-light border rounded p-3 mt-2">
+              <div v-if="googleConfig.dev_mock_enabled">
+                <div class="small fw-semibold mb-2">Simulated Google Account Picker (Dev Mode)</div>
+                <form @submit.prevent="loginWithGoogleMock">
+                  <div class="mb-2">
+                    <input
+                      id="google-mock-email"
+                      v-model="googleMock.email"
+                      type="email"
+                      class="form-control form-control-sm"
+                      placeholder="traveler@gmail.com"
+                      required
+                    />
+                  </div>
+                  <div class="row g-2 mb-2">
+                    <div class="col-6">
+                      <input v-model="googleMock.first_name" class="form-control form-control-sm" placeholder="First name" />
+                    </div>
+                    <div class="col-6">
+                      <input v-model="googleMock.last_name" class="form-control form-control-sm" placeholder="Last name" />
+                    </div>
+                  </div>
+                  <button id="google-mock-submit-btn" type="submit" class="btn btn-dark btn-sm w-100" :disabled="loading">
+                    Sign In with Google Account
+                  </button>
+                </form>
+              </div>
+              <div v-else>
+                <div class="small text-muted mb-2">Paste your Google OAuth2 ID token:</div>
+                <div class="input-group input-group-sm">
+                  <input v-model="googleIdToken" class="form-control" placeholder="Google ID Token" />
+                  <button class="btn btn-dark" type="button" @click="loginWithGoogleToken">Verify</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="border-top pt-3 text-center">
             <small class="text-muted d-block mb-2">Want to try a seeded customer account?</small>
-            <button class="btn btn-outline-secondary btn-sm" @click="fillDemoCustomer">
+            <button id="fill-demo-customer-btn" class="btn btn-outline-secondary btn-sm" @click="fillDemoCustomer">
               Fill Demo Customer (alice@example.com)
             </button>
           </div>
@@ -48,10 +102,19 @@
         <div class="col-lg-8">
           <div class="da-card p-4 h-100 d-flex justify-content-between align-items-center flex-wrap gap-3">
             <div>
-              <h1 class="h4 fw-bold mb-1">Welcome back, {{ overview.user.first_name || overview.user.email }}</h1>
+              <h1 class="h4 fw-bold mb-1">
+                Welcome back, {{ overview.user.first_name || overview.user.email }}
+                <span
+                  v-if="overview.user.social_providers && overview.user.social_providers.includes('GOOGLE')"
+                  class="badge text-bg-light border text-dark ms-2 align-middle"
+                  style="font-size: 0.72rem;"
+                >
+                  Google Connected
+                </span>
+              </h1>
               <div class="text-muted small">{{ overview.user.email }}</div>
             </div>
-            <button class="btn btn-outline-secondary btn-sm" @click="logout">Sign Out</button>
+            <button id="cabinet-signout-btn" class="btn btn-outline-secondary btn-sm" @click="logout">Sign Out</button>
           </div>
         </div>
         <div class="col-lg-4">
@@ -88,18 +151,27 @@
                 </div>
                 <div class="small">Passenger: <strong>{{ t.passenger.full_name }}</strong></div>
               </div>
-              <div class="mt-3 pt-2 border-top d-flex justify-content-between align-items-center">
+              <div class="mt-3 pt-2 border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <small class="text-muted">Booking {{ t.booking_reference }}</small>
-                <button
-                  v-if="t.status === 'PAID'"
-                  class="btn da-btn-primary btn-sm"
-                  @click="onlineCheckIn(t.ticket_code)"
-                >
-                  Online Check-In
-                </button>
-                <span v-else-if="t.status === 'CHECKED_IN'" class="text-success small fw-semibold">
-                  Boarding Pass Ready
-                </span>
+                <div class="d-flex gap-2 align-items-center">
+                  <button
+                    v-if="t.status !== 'CANCELLED'"
+                    class="btn btn-outline-secondary btn-sm"
+                    @click="downloadBoardingPass(t.ticket_code)"
+                  >
+                    PDF Boarding Pass (QR)
+                  </button>
+                  <button
+                    v-if="t.status === 'PAID'"
+                    class="btn da-btn-primary btn-sm"
+                    @click="onlineCheckIn(t.ticket_code)"
+                  >
+                    Online Check-In
+                  </button>
+                  <span v-else-if="t.status === 'CHECKED_IN'" class="text-success small fw-semibold">
+                    Boarding Pass Ready
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -161,9 +233,26 @@ export default {
         email: this.prefillEmail || "",
         password: "",
       },
+      googleConfig: {
+        enabled: false,
+        client_id: "",
+        dev_mock_enabled: false,
+      },
+      showGooglePanel: false,
+      googleMock: {
+        email: "google.traveler@gmail.com",
+        first_name: "Elena",
+        last_name: "Sky",
+      },
+      googleIdToken: "",
     };
   },
   async mounted() {
+    try {
+      this.googleConfig = await this.api.request("/auth/google/config/");
+    } catch {
+      this.googleConfig.enabled = false;
+    }
     if (this.api.getToken()) {
       await this.loadOverview();
     }
@@ -200,10 +289,47 @@ export default {
         this.loading = false;
       }
     },
+    async loginWithGoogleMock() {
+      this.error = "";
+      this.loading = true;
+      try {
+        const res = await this.api.request("/auth/google/", {
+          method: "POST",
+          body: { dev_mock: true, ...this.googleMock },
+        });
+        this.api.setToken(res.access);
+        this.showGooglePanel = false;
+        this.success = "Signed in with Google successfully.";
+        await this.loadOverview();
+      } catch (err) {
+        this.error = err.message;
+      } finally {
+        this.loading = false;
+      }
+    },
+    async loginWithGoogleToken() {
+      if (!this.googleIdToken.trim()) return;
+      this.error = "";
+      this.loading = true;
+      try {
+        const res = await this.api.request("/auth/google/", {
+          method: "POST",
+          body: { id_token: this.googleIdToken.trim() },
+        });
+        this.api.setToken(res.access);
+        this.showGooglePanel = false;
+        this.success = "Signed in with Google successfully.";
+        await this.loadOverview();
+      } catch (err) {
+        this.error = err.message;
+      } finally {
+        this.loading = false;
+      }
+    },
     async loadOverview() {
       try {
         this.overview = await this.api.request("/cabinet/overview/");
-      } catch (err) {
+      } catch {
         this.api.setToken(null);
         this.overview = null;
       }
@@ -215,6 +341,17 @@ export default {
         await this.api.request(`/cabinet/tickets/${ticketCode}/check-in/`, { method: "POST" });
         this.success = `Online check-in completed for ticket ${ticketCode}!`;
         await this.loadOverview();
+      } catch (err) {
+        this.error = err.message;
+      }
+    },
+    async downloadBoardingPass(ticketCode) {
+      this.error = "";
+      try {
+        await this.api.downloadBlob(
+          `/cabinet/tickets/${ticketCode}/boarding-pass.pdf`,
+          `boarding-pass-${ticketCode}.pdf`
+        );
       } catch (err) {
         this.error = err.message;
       }

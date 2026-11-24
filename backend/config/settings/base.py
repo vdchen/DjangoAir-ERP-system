@@ -165,6 +165,11 @@ WEBHOOK_MOCK_URL = os.environ.get(
 )
 WEBHOOK_TIMEOUT_SECONDS = int(os.environ.get("WEBHOOK_TIMEOUT_SECONDS", "5"))
 
+# Google OAuth2 Social Login (Optional #2)
+GOOGLE_OAUTH_CLIENT_ID = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "")
+GOOGLE_OAUTH_CLIENT_SECRET = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", "")
+GOOGLE_OAUTH_DEV_MOCK_ENABLED = os.environ.get("GOOGLE_OAUTH_DEV_MOCK_ENABLED", "0") == "1"
+
 # Structured Logging
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
 LOGGING = {

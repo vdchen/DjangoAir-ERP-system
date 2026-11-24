@@ -142,6 +142,29 @@ class CabinetOnlineCheckInView(APIView):
         return Response(TicketSerializer(ticket).data, status=status.HTTP_200_OK)
 
 
+class CabinetBoardingPassPdfView(APIView):
+    """Download a printable PDF boarding pass with embedded QR code for an owned ticket."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, ticket_code: str):
+        from django.http import HttpResponse
+
+        from .pdf import generate_boarding_pass_pdf
+
+        ticket = get_object_or_404(
+            _ticket_queryset(),
+            ticket_code__iexact=ticket_code.strip(),
+            booking__user=request.user,
+        )
+        pdf_bytes = generate_boarding_pass_pdf(ticket)
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = (
+            f'attachment; filename="boarding-pass-{ticket.ticket_code}.pdf"'
+        )
+        return response
+
+
 class StaffTicketListView(generics.ListAPIView):
     permission_classes = [IsGateManagerOrAbove]
     serializer_class = TicketSerializer

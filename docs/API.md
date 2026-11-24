@@ -10,7 +10,9 @@ All REST API endpoints are served under `/api/v1/` through Nginx. Authenticated 
 | `POST` | `/api/v1/auth/login/` | Public | Obtain JWT `access`, `refresh`, and `user` profile |
 | `POST` | `/api/v1/auth/refresh/` | Public | Refresh JWT access token |
 | `POST` | `/api/v1/auth/register/` | Public | Register a new customer account |
-| `GET` | `/api/v1/auth/me/` | Authenticated | Current user profile, role, and customer balance |
+| `GET` | `/api/v1/auth/google/config/` | Public | Check if Google OAuth2 / dev mock is enabled |
+| `POST` | `/api/v1/auth/google/` | Public | Authenticate or link customer via Google OAuth2 ID token (or guarded dev mock) |
+| `GET` | `/api/v1/auth/me/` | Authenticated | Current user profile, role, linked providers, and customer balance |
 | `GET` | `/api/v1/staff/users/` | Supervisor | List Gate Managers and Check-in Managers |
 | `POST` | `/api/v1/staff/users/` | Supervisor | Create a Gate Manager or Check-in Manager |
 | `DELETE` | `/api/v1/staff/users/<id>/` | Supervisor | Remove a Gate Manager or Check-in Manager |
@@ -36,11 +38,13 @@ All REST API endpoints are served under `/api/v1/` through Nginx. Authenticated 
 | `POST` | `/api/v1/bookings/validate-discount/` | Public | Validate discount promo code and preview discount |
 | `POST` | `/api/v1/bookings/` | Public | Create booking (`RESERVED`), lock seats, provision cabinet user |
 | `GET` | `/api/v1/bookings/<reference>/` | Public / Owner | Retrieve booking details and tickets |
-| `POST` | `/api/v1/payments/charge/` | Public | Process emulated payment (card or cabinet balance), send emails |
+| `POST` | `/api/v1/payments/charge/` | Public | Process emulated payment (card or cabinet balance), send emails with PDF attachments |
 | `GET` | `/api/v1/payments/<id>/invoice/` | Public / Owner | Retrieve itemized invoice/bill JSON |
+| `GET` | `/api/v1/payments/<id>/invoice.pdf` | Public / Owner | Download printable itemized PDF invoice |
 | `GET` | `/api/v1/cabinet/overview/` | Authenticated | Personal cabinet: profile, balance, upcoming & previous tickets |
 | `POST` | `/api/v1/cabinet/balance/top-up/` | Authenticated | Top up personal cabinet balance via emulated card |
 | `POST` | `/api/v1/cabinet/tickets/<ticket_code>/check-in/` | Authenticated | Online check-in (`PAID` -> `CHECKED_IN`) |
+| `GET` | `/api/v1/cabinet/tickets/<ticket_code>/boarding-pass.pdf` | Authenticated | Download printable PDF boarding pass with embedded QR code (`ticket_code`) |
 
 ## 4. Staff Airport Operations
 
