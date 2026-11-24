@@ -16,6 +16,10 @@ on:
           - staging
           - production
 
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
   packages: write
@@ -94,11 +98,16 @@ jobs:
           echo "Promoting sha-${GITHUB_SHA::7} to DEV environment"
           docker compose -f docker-compose.yml -f docker-compose.dev.yml config -q
       - name: Trigger dev deployment webhook (if configured)
-        if: ${{ secrets.DEV_DEPLOY_WEBHOOK_URL != '' }}
+        env:
+          DEPLOY_WEBHOOK_URL: ${{ secrets.DEV_DEPLOY_WEBHOOK_URL }}
         run: |
-          curl -fsSL -X POST "${{ secrets.DEV_DEPLOY_WEBHOOK_URL }}" \
-            -H "Content-Type: application/json" \
-            -d "{\"env\":\"dev\",\"sha\":\"${GITHUB_SHA}\"}"
+          if [ -n "${DEPLOY_WEBHOOK_URL:-}" ]; then
+            curl -fsSL -X POST "${DEPLOY_WEBHOOK_URL}" \
+              -H "Content-Type: application/json" \
+              -d "{\"env\":\"dev\",\"sha\":\"${GITHUB_SHA}\"}"
+          else
+            echo "DEV_DEPLOY_WEBHOOK_URL not set; skipping external deploy hook."
+          fi
 
   deploy-staging:
     name: Deploy to Staging Environment
@@ -117,11 +126,16 @@ jobs:
           echo "Promoting sha-${GITHUB_SHA::7} to STAGING environment"
           docker compose -f docker-compose.yml -f docker-compose.staging.yml config -q
       - name: Trigger staging deployment webhook (if configured)
-        if: ${{ secrets.STAGING_DEPLOY_WEBHOOK_URL != '' }}
+        env:
+          DEPLOY_WEBHOOK_URL: ${{ secrets.STAGING_DEPLOY_WEBHOOK_URL }}
         run: |
-          curl -fsSL -X POST "${{ secrets.STAGING_DEPLOY_WEBHOOK_URL }}" \
-            -H "Content-Type: application/json" \
-            -d "{\"env\":\"staging\",\"sha\":\"${GITHUB_SHA}\"}"
+          if [ -n "${DEPLOY_WEBHOOK_URL:-}" ]; then
+            curl -fsSL -X POST "${DEPLOY_WEBHOOK_URL}" \
+              -H "Content-Type: application/json" \
+              -d "{\"env\":\"staging\",\"sha\":\"${GITHUB_SHA}\"}"
+          else
+            echo "STAGING_DEPLOY_WEBHOOK_URL not set; skipping external deploy hook."
+          fi
 
   deploy-production:
     name: Deploy to Production (main)
@@ -140,8 +154,13 @@ jobs:
           echo "Promoting ${IMAGE_TAG} (sha-${GITHUB_SHA::7}) to PRODUCTION environment"
           docker compose -f docker-compose.yml -f docker-compose.prod.yml config -q
       - name: Trigger production deployment webhook (if configured)
-        if: ${{ secrets.PROD_DEPLOY_WEBHOOK_URL != '' }}
+        env:
+          DEPLOY_WEBHOOK_URL: ${{ secrets.PROD_DEPLOY_WEBHOOK_URL }}
         run: |
-          curl -fsSL -X POST "${{ secrets.PROD_DEPLOY_WEBHOOK_URL }}" \
-            -H "Content-Type: application/json" \
-            -d "{\"env\":\"production\",\"ref\":\"${GITHUB_REF_NAME}\",\"sha\":\"${GITHUB_SHA}\"}"
+          if [ -n "${DEPLOY_WEBHOOK_URL:-}" ]; then
+            curl -fsSL -X POST "${DEPLOY_WEBHOOK_URL}" \
+              -H "Content-Type: application/json" \
+              -d "{\"env\":\"production\",\"ref\":\"${GITHUB_REF_NAME}\",\"sha\":\"${GITHUB_SHA}\"}"
+          else
+            echo "PROD_DEPLOY_WEBHOOK_URL not set; skipping external deploy hook."
+          fi

@@ -59,3 +59,9 @@ make validate-envs
    - `dev`: Auto-deploys on push to `dev`. Optional secret: `DEV_DEPLOY_WEBHOOK_URL`, variable `DEV_APP_URL`.
    - `staging`: Auto-deploys on push to `staging`. Optional secret: `STAGING_DEPLOY_WEBHOOK_URL`, variable `STAGING_APP_URL`.
    - `production`: Enable **Required Reviewers** (manual approval gate before prod rollout) and restrict deployment branches to `main` and `v*.*.*` tags. Optional secret: `PROD_DEPLOY_WEBHOOK_URL`, variable `PROD_APP_URL`.
+
+## 5. Enterprise CI/CD Conventions Enforced
+- **PR-Driven CI (No Duplicate Runs)**: `.github/workflows/ci.yml` runs on every `pull_request` into `dev`, `staging`, or `main` (covering `feat/*`, `fix/*`, `hotfix/*`, `chore/*`, `dependabot/*`) and on direct merges (`push`) to `[dev, staging, main]`, with `cancel-in-progress: true` for superseded PR pushes.
+- **PR Docker Build Gate (`push: false`)**: Every PR verifies all 4 Dockerfiles (`backend`, `mobile_ws`, `webhook_mock`, `nginx`) build cleanly using GHA cache before merge, without polluting GHCR with unmerged PR tags.
+- **Serialized CD Promotions**: `.github/workflows/cd.yml` uses `cancel-in-progress: false` per branch so deployments to `dev`, `staging`, and `production` never race, and only pushes images to GHCR from `[dev, staging, main]` and `v*.*.*` tags.
+- **Automated Dependency Updates**: `.github/dependabot.yml` opens weekly update PRs against `dev` for `pip`, `npm`, `docker`, and `github-actions`, validated automatically by `ci.yml`.
