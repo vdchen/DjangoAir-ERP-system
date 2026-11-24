@@ -45,3 +45,20 @@ def test_webhook_accepts_valid_hmac_signature_and_stores_event():
     assert listing.status_code == 200
     assert listing.get_json()["count"] == 1
     assert listing.get_json()["events"][0]["event"] == "booking.confirmed"
+
+
+def test_webhook_rejects_stale_replay_timestamp():
+    client = app.test_client()
+    body = json.dumps({"event": "booking.confirmed"}).encode("utf-8")
+    stale_ts = "1500000000"  # Year 2017 — far outside 300s replay window
+    resp = client.post(
+        "/mock-webhook/events",
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "X-DjangoAir-Timestamp": stale_ts,
+            "X-DjangoAir-Signature": _sign(body),
+        },
+    )
+    assert resp.status_code == 401
+    assert "replay window" in resp.get_json()["error"]

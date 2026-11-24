@@ -52,3 +52,6 @@ smoke:
 
 e2e:
 	cd e2e && npm install && npx playwright install chromium && npx playwright test
+
+benchmark:
+	python3 loadtest/benchmark.py --requests 200 --concurrency 16

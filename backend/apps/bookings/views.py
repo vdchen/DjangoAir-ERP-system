@@ -9,6 +9,8 @@ from rest_framework.views import APIView
 from apps.accounts.models import CustomerProfile
 from apps.accounts.permissions import IsCheckInManagerOrAbove, IsGateManagerOrAbove
 from apps.accounts.serializers import UserSerializer
+from apps.integrations.idempotency import idempotent_endpoint
+from apps.integrations.metrics import BOOKINGS_CREATED_TOTAL
 
 from .models import Booking, Discount, Ticket
 from .serializers import (
@@ -35,6 +37,7 @@ def _ticket_queryset():
 class BookingCreateView(APIView):
     permission_classes = [AllowAny]
 
+    @idempotent_endpoint
     def post(self, request):
         serializer = BookingCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -48,6 +51,7 @@ class BookingCreateView(APIView):
             discount_code=data.get("discount_code") or None,
             authenticated_user=request.user if request.user.is_authenticated else None,
         )
+        BOOKINGS_CREATED_TOTAL.inc()
         booking = (
             Booking.objects.select_related("discount")
             .prefetch_related(
