@@ -1,6 +1,7 @@
 import os
 
 from .base import *  # noqa: F401, F403
+from .base import LOGGING
 
 APP_ENV = "prod"
 DEBUG = False
@@ -24,3 +25,4 @@ SESSION_COOKIE_SECURE = os.environ.get("SECURE_COOKIES", "1") == "1"
 CSRF_COOKIE_SECURE = os.environ.get("SECURE_COOKIES", "1") == "1"
 X_FRAME_OPTIONS = "DENY"
 GOOGLE_OAUTH_DEV_MOCK_ENABLED = False
+LOGGING["handlers"]["console"]["formatter"] = "json"

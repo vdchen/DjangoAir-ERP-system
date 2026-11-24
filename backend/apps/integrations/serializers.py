@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import WebhookDelivery, WebhookSubscription
+from .models import OutboxEvent, WebhookDelivery, WebhookSubscription
 
 
 class WebhookSubscriptionSerializer(serializers.ModelSerializer):
@@ -25,4 +25,20 @@ class WebhookDeliverySerializer(serializers.ModelSerializer):
             "response_body",
             "success",
             "delivered_at",
+        ]
+
+
+class OutboxEventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OutboxEvent
+        fields = [
+            "id",
+            "event_type",
+            "payload",
+            "status",
+            "attempts",
+            "max_attempts",
+            "last_error",
+            "created_at",
+            "published_at",
         ]

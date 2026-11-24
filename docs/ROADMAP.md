@@ -27,8 +27,9 @@
 - [x] Branch promotion workflow (`feat/*` -> `dev` -> `staging` -> `main`) & GHCR multi-environment CD pipeline (`.github/workflows/cd.yml`) documented in [docs/ENVIRONMENTS.md](ENVIRONMENTS.md)
 
 ## Iteration 4 — 2026–2027 Production & Career-Differentiating Engineering
-- [ ] **Distributed Systems Reliability**: `Idempotency-Key` headers on booking/payment APIs, Transactional Outbox table for guaranteed Redis/Webhook emission, Celery Dead-Letter Queue (DLQ) + exponential backoff retries, webhook timestamp replay protection
-- [ ] **SRE-Grade Observability**: OpenTelemetry tracing across Nginx -> Django -> PostgreSQL -> Celery -> Flask services, structured JSON logs with `X-Request-ID`, Prometheus `/metrics` + Grafana dashboards, `/health/live` & `/health/ready` probes
-- [ ] **Contract-First Type Safety & Load Testing**: OpenAPI 3.1 -> TypeScript client generation for Vue 3, strict `mypy`, CI security scanning (`bandit`, `pip-audit`, `trivy`, `gitleaks`), and `k6`/`Locust` p95 latency benchmarks
+- [x] **Distributed Systems Reliability**: `Idempotency-Key` deduplication on booking/payment APIs, Transactional Outbox (`OutboxEvent`) + `transaction.on_commit` Celery relay + Dead-Letter Queue (DLQ) Supervisor replay, webhook `X-DjangoAir-Timestamp` 300s replay-window protection
+- [x] **SRE-Grade Observability (Core)**: Structured JSON logging with `X-Request-ID` correlation, Prometheus `/api/v1/metrics/` (HTTP counters/latency histograms + domain counters), Kubernetes-style `/health/live/` & `/health/ready/` probes
+- [x] **Architecture Decision Records (`docs/adr/`) & Load Benchmarks (`loadtest/`)**: 4 ADRs (`001`–`004`), `k6` script + concurrent Python benchmark with published RPS & p95 latency metrics, grouped Dependabot v2 config
+- [ ] **Distributed Tracing & TypeScript Client Generation**: OpenTelemetry OTLP exporter (Jaeger/Tempo), OpenAPI 3.1 -> TypeScript Vue 3 client generation, `mypy` strict mode, `trivy` container CVE scan
 - [ ] **AI-Native Airline Disruption & Rebooking Copilot**: Structured LLM tool-calling over DjangoAir REST APIs + RAG over baggage/fare rules + human-in-the-loop confirmation + automated eval suite
-- [ ] **Architecture Decision Records (`docs/adr/`) & Cloud Deployment**: Documented trade-offs plus Terraform/Helm live cloud deployment
+- [ ] **Live Cloud Deployment**: Terraform / Helm / Fly.io live demo deployment

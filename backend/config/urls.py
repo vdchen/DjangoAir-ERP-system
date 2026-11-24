@@ -6,6 +6,8 @@ from django.http import JsonResponse
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+from apps.integrations.metrics import metrics_view
+
 
 def _check_database() -> bool:
     try:
@@ -56,6 +58,8 @@ def health_check(_request):
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("metrics", metrics_view, name="prometheus-metrics-root"),
+    path("api/v1/metrics/", metrics_view, name="prometheus-metrics"),
     path("api/v1/health/", health_check, name="health-check"),
     path("api/v1/health/live/", health_live, name="health-live"),
     path("api/v1/health/ready/", health_ready, name="health-ready"),

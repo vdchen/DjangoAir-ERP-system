@@ -12,6 +12,8 @@ from apps.accounts.models import CustomerProfile
 from apps.bookings.models import Booking, BookingStatus, TicketStatus
 from apps.bookings.serializers import BookingSerializer
 from apps.integrations.events import publish_domain_event
+from apps.integrations.idempotency import idempotent_endpoint
+from apps.integrations.metrics import PAYMENTS_TOTAL
 from apps.notifications.tasks import send_booking_confirmation_email
 
 from .gateway import EmulatedGatewayProvider
@@ -24,6 +26,7 @@ class PaymentChargeView(APIView):
 
     permission_classes = [AllowAny]
 
+    @idempotent_endpoint
     @transaction.atomic
     def post(self, request):
         serializer = PaymentChargeInputSerializer(data=request.data)
@@ -50,6 +53,7 @@ class PaymentChargeView(APIView):
             try:
                 profile.debit(booking.total_amount)
             except ValueError as exc:
+                PAYMENTS_TOTAL.labels(provider="cabinet_balance", status="FAILED").inc()
                 return Response({"detail": str(exc)}, status=status.HTTP_402_PAYMENT_REQUIRED)
             payment = Payment.objects.create(
                 booking=booking,
@@ -60,6 +64,7 @@ class PaymentChargeView(APIView):
                 card_last4="BAL",
                 paid_at=timezone.now(),
             )
+            PAYMENTS_TOTAL.labels(provider="cabinet_balance", status="SUCCEEDED").inc()
         else:
             gateway = EmulatedGatewayProvider()
             result = gateway.charge(
@@ -80,6 +85,7 @@ class PaymentChargeView(APIView):
                 failure_reason=result.failure_reason,
                 paid_at=timezone.now() if result.success else None,
             )
+            PAYMENTS_TOTAL.labels(provider=result.provider, status=payment.status).inc()
             if not result.success:
                 return Response(
                     {
