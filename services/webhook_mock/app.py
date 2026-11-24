@@ -51,7 +51,21 @@ def webhook_events():
 
     raw_body = request.get_data()
     sig_header = request.headers.get("X-DjangoAir-Signature", "")
+    ts_header = request.headers.get("X-DjangoAir-Timestamp", "").strip()
+    sig_v2_header = request.headers.get("X-DjangoAir-Signature-V2", "").strip()
     secret = os.environ.get("WEBHOOK_DEFAULT_SECRET", WEBHOOK_SECRET)
+
+    if ts_header:
+        try:
+            req_ts = int(ts_header)
+        except ValueError:
+            return jsonify({"error": "Malformed X-DjangoAir-Timestamp header"}), 401
+        if abs(int(datetime.now(timezone.utc).timestamp()) - req_ts) > 300:
+            return jsonify({"error": "Webhook timestamp outside 300s replay window"}), 401
+        if sig_v2_header:
+            signed_payload = f"{ts_header}.".encode() + raw_body
+            if not verify_signature(secret, signed_payload, sig_v2_header):
+                return jsonify({"error": "Invalid HMAC-V2 timestamped signature"}), 401
 
     if not verify_signature(secret, raw_body, sig_header):
         return jsonify({"error": "Invalid or missing HMAC signature"}), 401

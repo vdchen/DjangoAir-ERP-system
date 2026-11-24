@@ -36,6 +36,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "apps.integrations.middleware.RequestCorrelationAndMetricsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -165,8 +166,14 @@ WEBHOOK_MOCK_URL = os.environ.get(
 )
 WEBHOOK_TIMEOUT_SECONDS = int(os.environ.get("WEBHOOK_TIMEOUT_SECONDS", "5"))
 
-# Structured Logging
+# Google OAuth2 Social Login (Optional #2)
+GOOGLE_OAUTH_CLIENT_ID = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "")
+GOOGLE_OAUTH_CLIENT_SECRET = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", "")
+GOOGLE_OAUTH_DEV_MOCK_ENABLED = os.environ.get("GOOGLE_OAUTH_DEV_MOCK_ENABLED", "0") == "1"
+
+# Structured Logging (set LOG_FORMAT=json for single-line JSON logs with request_id)
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
+LOG_FORMAT = os.environ.get("LOG_FORMAT", "standard")
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -174,11 +181,14 @@ LOGGING = {
         "standard": {
             "format": "[%(asctime)s] %(levelname)s %(name)s: %(message)s",
         },
+        "json": {
+            "()": "apps.integrations.logging_utils.JsonLogFormatter",
+        },
     },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            "formatter": "standard",
+            "formatter": "json" if LOG_FORMAT == "json" else "standard",
         },
     },
     "root": {
