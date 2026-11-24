@@ -1,0 +1,117 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+:root {
+  --da-navy: #0b2545;
+  --da-navy-light: #13315c;
+  --da-cobalt: #1565c0;
+  --da-sky: #e8f1fa;
+  --da-amber: #d9822b;
+  --da-bg: #f5f7fa;
+  --da-surface: #ffffff;
+  --da-border: #dce4ee;
+  --da-text: #162231;
+  --da-muted: #5b6e84;
+}
+
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--da-bg);
+  color: var(--da-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+.da-navbar {
+  background-color: var(--da-navy);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.da-brand {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.da-hero {
+  background: linear-gradient(135deg, #0b2545 0%, #154379 100%);
+  color: #ffffff;
+  border-radius: 16px;
+}
+
+.da-card {
+  background: var(--da-surface);
+  border: 1px solid var(--da-border);
+  border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(11, 37, 69, 0.05);
+}
+
+.da-stepper {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.da-step {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  background: #e9eef5;
+  color: var(--da-muted);
+}
+
+.da-step.active {
+  background: var(--da-cobalt);
+  color: #ffffff;
+}
+
+.da-step.done {
+  background: #d6f0e0;
+  color: #155d37;
+}
+
+.da-seat-card {
+  border: 1.5px solid var(--da-border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
+}
+
+.da-seat-card:hover {
+  border-color: var(--da-cobalt);
+  transform: translateY(-1px);
+}
+
+.da-seat-card.selected {
+  border-color: var(--da-cobalt);
+  background-color: var(--da-sky);
+}
+
+.da-ticket-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: #edf2f8;
+  color: var(--da-navy);
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+}
+
+.da-btn-primary {
+  background-color: var(--da-cobalt);
+  border-color: var(--da-cobalt);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.da-btn-primary:hover {
+  background-color: #0f4f99;
+  border-color: #0f4f99;
+  color: #ffffff;
+}
+
+.da-boarding-pass {
+  border: 1.5px dashed var(--da-navy);
+  border-radius: 14px;
+  background: #ffffff;
+}

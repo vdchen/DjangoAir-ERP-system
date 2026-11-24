@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev, "feat/**"]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  backend:
+    name: Backend Lint & Pytest (PostgreSQL + Redis)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: djangoair_test
+          POSTGRES_USER: djangoair
+          POSTGRES_PASSWORD: djangoair_secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install backend dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt
+      - name: Lint with ruff
+        working-directory: backend
+        run: ruff check .
+      - name: Check migrations are up to date
+        working-directory: backend
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.test
+          POSTGRES_DB: djangoair_test
+          POSTGRES_USER: djangoair
+          POSTGRES_PASSWORD: djangoair_secret
+          POSTGRES_HOST: 127.0.0.1
+          POSTGRES_PORT: 5432
+          REDIS_URL: redis://127.0.0.1:6379/0
+        run: python manage.py makemigrations --check --dry-run
+      - name: Run pytest with coverage
+        working-directory: backend
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.test
+          POSTGRES_DB: djangoair_test
+          POSTGRES_USER: djangoair
+          POSTGRES_PASSWORD: djangoair_secret
+          POSTGRES_HOST: 127.0.0.1
+          POSTGRES_PORT: 5432
+          REDIS_URL: redis://127.0.0.1:6379/0
+        run: pytest -v --cov=apps --cov-report=term-missing
+
+  flask-services:
+    name: Flask Mobile WS & Webhook Mock Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Test mobile_ws
+        working-directory: services/mobile_ws
+        run: |
+          pip install -r requirements.txt
+          pytest -v
+      - name: Test webhook_mock
+        working-directory: services/webhook_mock
+        run: |
+          pip install -r requirements.txt
+          pytest -v
+
+  frontend-build:
+    name: Frontend Webpack Production Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install and build both SPAs
+        working-directory: frontend
+        run: |
+          npm install
+          npm run build
+          test -f dist/customer/index.html
+          test -f dist/staff/index.html
+
+  docker-validate:
+    name: Docker Compose Config Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate docker-compose.yml
+        run: docker compose config -q
