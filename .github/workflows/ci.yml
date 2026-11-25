@@ -90,7 +90,7 @@ jobs:
           POSTGRES_HOST: 127.0.0.1
           POSTGRES_PORT: 5432
           REDIS_URL: redis://127.0.0.1:6379/0
-        run: pytest -v --cov=apps --cov-report=term-missing
+        run: pytest -v --cov=apps --cov-report=term-missing --cov-fail-under=90
 
   flask-services:
     name: Flask Mobile WS & Webhook Mock Tests
@@ -100,29 +100,30 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-      - name: Test mobile_ws
+      - name: Test mobile_ws (with coverage gate)
         working-directory: services/mobile_ws
         run: |
           pip install -r requirements.txt
-          pytest -v
-      - name: Test webhook_mock
+          pytest -v --cov=app --cov-report=term-missing --cov-fail-under=70
+      - name: Test webhook_mock (with coverage gate)
         working-directory: services/webhook_mock
         run: |
           pip install -r requirements.txt
-          pytest -v
+          pytest -v --cov=app --cov-report=term-missing --cov-fail-under=90
 
   frontend-build:
-    name: Frontend Webpack Production Build
+    name: Frontend Unit Tests & Webpack Production Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Install and build both SPAs
+      - name: Install, unit test (Vitest), and build both SPAs
         working-directory: frontend
         run: |
           npm install
+          npm test
           npm run build
           test -f dist/customer/index.html
           test -f dist/staff/index.html

@@ -45,9 +45,12 @@ class FlightSearchView(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         passengers = int(request.query_params.get("passengers", 1) or 1)
-        queryset = list(self.get_queryset())
+        queryset = Flight.attach_booked_counts(list(self.get_queryset()))
         filtered = [f for f in queryset if f.total_available_seats() >= passengers]
-        serializer = self.get_serializer(filtered, many=True)
+        default_opts = list(Option.objects.filter(is_active=True))
+        serializer = self.get_serializer(
+            filtered, many=True, context={"default_active_options": default_opts}
+        )
         return Response(serializer.data)
 
 
@@ -73,6 +76,14 @@ class StaffFlightListCreateView(generics.ListCreateAPIView):
         if self.request.method == "POST":
             return FlightCreateSerializer
         return FlightListSerializer
+
+    def list(self, request, *args, **kwargs):
+        flights = Flight.attach_booked_counts(list(self.get_queryset()))
+        default_opts = list(Option.objects.filter(is_active=True))
+        serializer = self.get_serializer(
+            flights, many=True, context={"default_active_options": default_opts}
+        )
+        return Response(serializer.data)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
