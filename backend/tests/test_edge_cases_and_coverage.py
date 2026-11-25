@@ -374,3 +374,21 @@ def test_idempotency_oversized_key_outbox_filter_and_failure_logging(
         conf_res = send_booking_confirmation_email(b_resp.data["id"], "Temp123!", "INV-FAIL")
     assert conf_res["status"] == "failed"
     assert EmailLog.objects.filter(recipient="failmail@example.com", status=EmailLog.Status.FAILED).exists()
+
+
+@pytest.mark.django_db
+def test_seed_demo_data_late_utc_hour_still_seeds_tomorrow_flights(api_client):
+    """Regression test: seeding after 16:00 UTC must still place day_offset=1 flights on tomorrow."""
+    from datetime import UTC, datetime
+
+    from django.core.management import call_command
+
+    late_utc = datetime(2026, 11, 25, 23, 30, 0, tzinfo=UTC)
+    with patch("apps.flights.management.commands.seed_demo_data.timezone.now", return_value=late_utc):
+        call_command("seed_demo_data")
+
+    resp = api_client.get("/api/v1/flights/search/?destination=LHR&date=2026-11-26&passengers=1")
+    assert resp.status_code == 200
+    assert len(resp.data) >= 1
+    assert any(f["flight_number"] == "DA101-1" for f in resp.data)
+

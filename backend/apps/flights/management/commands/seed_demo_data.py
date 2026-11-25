@@ -143,6 +143,7 @@ class Command(BaseCommand):
 
         # 7. Scheduled Upcoming Flights across next 5 days + 1 past flight
         now = timezone.now().replace(minute=0, second=0, microsecond=0)
+        base_day = now.replace(hour=0)
         routes = [
             ("DA101", "JFK", "LHR", "DA-787C", 7, Decimal("420.00"), "B12"),
             ("DA204", "JFK", "CDG", "DA-787C", 7, Decimal("440.00"), "A4"),
@@ -155,7 +156,7 @@ class Command(BaseCommand):
         created_upcoming = None
         for day_offset in range(1, 6):
             for idx, (fnum, orig, dest, reg, dur_h, price, gate) in enumerate(routes):
-                dep = now + timedelta(days=day_offset, hours=8 + (idx * 2))
+                dep = base_day + timedelta(days=day_offset, hours=8 + (idx * 2))
                 arr = dep + timedelta(hours=dur_h)
                 code = f"{fnum}-{day_offset}"
                 flight, created = Flight.objects.get_or_create(
