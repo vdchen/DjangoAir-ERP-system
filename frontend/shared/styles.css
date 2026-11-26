@@ -1,117 +1,317 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap");
 
 :root {
-  --da-navy: #0b2545;
-  --da-navy-light: #13315c;
-  --da-cobalt: #1565c0;
-  --da-sky: #e8f1fa;
-  --da-amber: #d9822b;
-  --da-bg: #f5f7fa;
+  --da-navy: #0c1e36;
+  --da-navy-mid: #15355e;
+  --da-cobalt: #1462cc;
+  --da-cobalt-hover: #0e4da4;
+  --da-sky: #edf4fd;
+  --da-sky-strong: #d8e8fc;
+  --da-amber: #d97c10;
+  --da-emerald: #137a4b;
+  --da-emerald-bg: #e6f6ee;
+  --da-bg: #f4f7fa;
   --da-surface: #ffffff;
-  --da-border: #dce4ee;
-  --da-text: #162231;
-  --da-muted: #5b6e84;
+  --da-surface-subtle: #f8fafd;
+  --da-border: #dfe6ef;
+  --da-border-strong: #c6d3e3;
+  --da-text: #122133;
+  --da-muted: #586c84;
+  --da-shadow-sm: 0 2px 8px rgba(12, 30, 54, 0.04);
+  --da-shadow-md: 0 10px 28px rgba(12, 30, 54, 0.07);
+  --da-shadow-lg: 0 18px 42px rgba(12, 30, 54, 0.12);
+  --da-radius-sm: 8px;
+  --da-radius-md: 14px;
+  --da-radius-lg: 20px;
+}
+
+html,
+body {
+  min-height: 100%;
 }
 
 body {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background-color: var(--da-bg);
   color: var(--da-text);
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+h1,
+h2,
+h3,
+h4,
+.da-brand,
+.display-6 {
+  font-family: "Plus Jakarta Sans", "Inter", sans-serif;
+  letter-spacing: -0.025em;
+}
+
+/* Header & Navigation */
 .da-navbar {
-  background-color: var(--da-navy);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(90deg, var(--da-navy) 0%, #112a4a 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 4px 18px rgba(12, 30, 54, 0.14);
 }
 
 .da-brand {
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-weight: 800;
   color: #ffffff;
   text-decoration: none;
+  transition: opacity 0.15s ease;
 }
 
-.da-hero {
-  background: linear-gradient(135deg, #0b2545 0%, #154379 100%);
+.da-brand:hover {
   color: #ffffff;
-  border-radius: 16px;
+  opacity: 0.92;
 }
 
+.da-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #7cc0ff;
+}
+
+.da-nav-btn {
+  border-radius: 10px;
+  padding: 0.42rem 0.9rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: all 0.15s ease;
+}
+
+/* Hero Banner */
+.da-hero {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #0b1d34 0%, #143967 56%, #1b508f 100%);
+  color: #ffffff;
+  border-radius: var(--da-radius-lg);
+  box-shadow: var(--da-shadow-lg);
+}
+
+.da-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 86% 18%, rgba(124, 192, 255, 0.22) 0%, transparent 48%);
+  pointer-events: none;
+}
+
+.da-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+.da-hero-eyebrow {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #93cbff;
+}
+
+.da-search-shell {
+  background: var(--da-surface);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  box-shadow: 0 16px 36px rgba(7, 19, 34, 0.24);
+}
+
+/* Elevated Surfaces */
 .da-card {
   background: var(--da-surface);
   border: 1px solid var(--da-border);
-  border-radius: 14px;
-  box-shadow: 0 4px 16px rgba(11, 37, 69, 0.05);
+  border-radius: var(--da-radius-md);
+  box-shadow: var(--da-shadow-sm);
+  transition: box-shadow 0.18s ease, border-color 0.18s ease;
 }
 
+.da-card-hover:hover {
+  box-shadow: var(--da-shadow-md);
+  border-color: var(--da-border-strong);
+}
+
+/* Progress Stepper */
 .da-stepper {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.6rem;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .da-step {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 600;
-  padding: 0.4rem 0.9rem;
+  padding: 0.42rem 0.95rem;
   border-radius: 999px;
-  background: #e9eef5;
+  background: #e9eff6;
   color: var(--da-muted);
+  transition: background-color 0.18s ease, color 0.18s ease;
 }
 
 .da-step.active {
   background: var(--da-cobalt);
   color: #ffffff;
+  box-shadow: 0 4px 12px rgba(20, 98, 204, 0.28);
 }
 
 .da-step.done {
-  background: #d6f0e0;
-  color: #155d37;
+  background: var(--da-emerald-bg);
+  color: var(--da-emerald);
 }
 
+/* Cabin Fare Cards */
 .da-seat-card {
   border: 1.5px solid var(--da-border);
   border-radius: 12px;
+  background: var(--da-surface-subtle);
   cursor: pointer;
-  transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
+  transition: border-color 0.16s ease, background-color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
 }
 
 .da-seat-card:hover {
   border-color: var(--da-cobalt);
-  transform: translateY(-1px);
+  background: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(20, 98, 204, 0.1);
 }
 
 .da-seat-card.selected {
   border-color: var(--da-cobalt);
   background-color: var(--da-sky);
+  box-shadow: 0 0 0 3px rgba(20, 98, 204, 0.14);
+}
+
+/* Route Display & Codes */
+.da-route-code {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .da-ticket-code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-weight: 700;
+  font-size: 0.84rem;
   letter-spacing: 0.04em;
-  background: #edf2f8;
+  background: #edf3fa;
   color: var(--da-navy);
-  padding: 0.2rem 0.55rem;
+  padding: 0.22rem 0.6rem;
   border-radius: 6px;
 }
 
+/* Primary Buttons */
 .da-btn-primary {
   background-color: var(--da-cobalt);
   border-color: var(--da-cobalt);
   color: #ffffff;
   font-weight: 600;
+  border-radius: 10px;
+  transition: background-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.da-btn-primary:hover {
-  background-color: #0f4f99;
-  border-color: #0f4f99;
+.da-btn-primary:hover:not(:disabled) {
+  background-color: var(--da-cobalt-hover);
+  border-color: var(--da-cobalt-hover);
   color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(20, 98, 204, 0.24);
 }
 
+.da-btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Authentic Boarding Pass Card */
 .da-boarding-pass {
-  border: 1.5px dashed var(--da-navy);
+  border: 1px solid var(--da-border-strong);
+  border-top: 4px solid var(--da-cobalt);
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--da-shadow-sm);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.da-boarding-pass:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--da-shadow-md);
+}
+
+.da-boarding-divider {
+  border-top: 1.5px dashed var(--da-border-strong);
+}
+
+/* Form Controls */
+.form-control,
+.form-select {
+  border-color: var(--da-border-strong);
+  border-radius: 10px;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--da-cobalt);
+  box-shadow: 0 0 0 3px rgba(20, 98, 204, 0.14);
+}
+
+/* Staff Operational Tabs */
+.da-staff-tabs .nav-link {
+  border-radius: 10px;
+  font-weight: 600;
+  color: var(--da-muted);
+  background: #ffffff;
+  border: 1px solid var(--da-border);
+  padding: 0.55rem 1.05rem;
+  transition: all 0.15s ease;
+}
+
+.da-staff-tabs .nav-link:hover {
+  color: var(--da-navy);
+  border-color: var(--da-border-strong);
+}
+
+.da-staff-tabs .nav-link.active {
+  background: var(--da-navy);
+  border-color: var(--da-navy);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(12, 30, 54, 0.22);
+}
+
+/* Tables */
+.table thead th {
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--da-muted);
+  border-bottom-color: var(--da-border);
+}
+
+/* Footer */
+.da-footer {
+  border-top: 1px solid var(--da-border);
+  background: #ffffff;
+  color: var(--da-muted);
+  font-size: 0.82rem;
+}
+
+.da-footer a {
+  color: var(--da-muted);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.da-footer a:hover {
+  color: var(--da-cobalt);
 }

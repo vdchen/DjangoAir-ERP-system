@@ -13,117 +13,20 @@
       <button class="btn-close" @click="error = ''"></button>
     </div>
 
-    <!-- STEP 1: Welcome Screen (One-Way & Round-Trip Search) -->
-    <div v-if="step === 1" class="da-hero p-4 p-md-5 shadow-sm">
-      <div class="row align-items-center">
-        <div class="col-lg-10 mx-auto">
-          <h1 class="display-6 fw-bold mb-2">Where would you like to fly?</h1>
-          <p class="opacity-75 mb-4">
-            Choose your destination, travel date, and number of passengers to view live fares and seat availability.
-          </p>
+    <!-- STEP 1: Search Hero -->
+    <BookingSearchHero
+      v-if="step === 1"
+      :search="search"
+      :airports="airports"
+      :loading="loading"
+      @search="searchFlights"
+    />
 
-          <form class="da-card p-4 text-dark" @submit.prevent="searchFlights">
-            <div class="btn-group mb-3" role="group" aria-label="Trip type">
-              <button
-                id="trip-type-oneway"
-                type="button"
-                class="btn btn-sm"
-                :class="search.tripType === 'one_way' ? 'btn-primary' : 'btn-outline-primary'"
-                @click="search.tripType = 'one_way'"
-              >
-                One-Way
-              </button>
-              <button
-                id="trip-type-roundtrip"
-                type="button"
-                class="btn btn-sm"
-                :class="search.tripType === 'round_trip' ? 'btn-primary' : 'btn-outline-primary'"
-                @click="search.tripType = 'round_trip'"
-              >
-                Round-Trip
-              </button>
-            </div>
-
-            <div class="row g-3 align-items-end">
-              <div v-if="search.tripType === 'round_trip'" class="col-md-3">
-                <label for="search-origin" class="form-label fw-semibold">Origin</label>
-                <select
-                  id="search-origin"
-                  v-model="search.origin"
-                  class="form-select form-select-lg"
-                >
-                  <option value="">Any origin</option>
-                  <option v-for="ap in airports" :key="ap.id" :value="ap.code">
-                    {{ ap.city }} ({{ ap.code }})
-                  </option>
-                </select>
-              </div>
-              <div :class="search.tripType === 'round_trip' ? 'col-md-3' : 'col-md-5'">
-                <label for="search-destination" class="form-label fw-semibold">Destination</label>
-                <select
-                  id="search-destination"
-                  v-model="search.destination"
-                  class="form-select form-select-lg"
-                  required
-                >
-                  <option value="" disabled>Select destination airport...</option>
-                  <option v-for="ap in airports" :key="ap.id" :value="ap.code">
-                    {{ ap.city }} ({{ ap.code }}) — {{ ap.country }}
-                  </option>
-                </select>
-              </div>
-              <div :class="search.tripType === 'round_trip' ? 'col-md-2' : 'col-md-4'">
-                <label for="search-date" class="form-label fw-semibold">Departure Date</label>
-                <input
-                  id="search-date"
-                  v-model="search.date"
-                  type="date"
-                  class="form-control form-control-lg"
-                  required
-                />
-              </div>
-              <div v-if="search.tripType === 'round_trip'" class="col-md-2">
-                <label for="search-return-date" class="form-label fw-semibold">Return Date</label>
-                <input
-                  id="search-return-date"
-                  v-model="search.returnDate"
-                  type="date"
-                  class="form-control form-control-lg"
-                  :min="search.date"
-                  required
-                />
-              </div>
-              <div :class="search.tripType === 'round_trip' ? 'col-md-2' : 'col-md-3'">
-                <label for="search-passengers" class="form-label fw-semibold">Passengers</label>
-                <input
-                  id="search-passengers"
-                  v-model.number="search.passengers"
-                  type="number"
-                  min="1"
-                  max="9"
-                  class="form-control form-control-lg"
-                  required
-                />
-              </div>
-            </div>
-            <div class="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-2">
-              <small class="text-muted">
-                Tip: Seeded flights run daily for the next 5 days (try JFK &harr; LHR or JFK &harr; CDG for round-trip).
-              </small>
-              <button id="search-submit-btn" type="submit" class="btn da-btn-primary btn-lg px-4" :disabled="loading">
-                {{ loading ? "Searching..." : "Find Flights" }}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-
-    <!-- STEP 2: Flights, Seat Types, Interactive Cabin Seat Map & Options -->
+    <!-- STEP 2: Flights, Cabin Classes, Seat Map & Options -->
     <div v-if="step === 2">
-      <div class="d-flex justify-content-between align-items-center mb-3">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
         <h1 class="h4 fw-bold mb-0">
-          Available Flights to {{ search.destination }} on {{ search.date }}
+          Available Flights to <span class="da-route-code">{{ search.destination }}</span> on {{ search.date }}
           <span v-if="search.tripType === 'round_trip'" class="badge text-bg-info ms-2">
             Round-Trip (Return {{ search.returnDate }})
           </span>
@@ -148,12 +51,12 @@
           <div
             v-for="flight in flights"
             :key="flight.id"
-            class="da-card p-4 mb-3"
+            class="da-card da-card-hover p-4 mb-3"
           >
             <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
               <div>
                 <span class="badge text-bg-primary me-2">{{ flight.flight_number }}</span>
-                <span class="fw-bold fs-5">{{ flight.origin.code }} &rarr; {{ flight.destination.code }}</span>
+                <span class="fw-bold fs-5 da-route-code">{{ flight.origin.code }} &rarr; {{ flight.destination.code }}</span>
                 <div class="text-muted small mt-1">
                   {{ flight.origin.city }} to {{ flight.destination.city }} &bull;
                   {{ formatDateTime(flight.departure_time) }} &rarr; {{ formatDateTime(flight.arrival_time) }} &bull;
@@ -237,12 +140,12 @@
             <div
               v-for="rflight in returnFlights"
               :key="rflight.id"
-              class="da-card p-4 mb-3 border-info-subtle"
+              class="da-card da-card-hover p-4 mb-3"
             >
               <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
                 <div>
                   <span class="badge text-bg-info me-2">{{ rflight.flight_number }}</span>
-                  <span class="fw-bold fs-5">{{ rflight.origin.code }} &rarr; {{ rflight.destination.code }}</span>
+                  <span class="fw-bold fs-5 da-route-code">{{ rflight.origin.code }} &rarr; {{ rflight.destination.code }}</span>
                   <div class="text-muted small mt-1">
                     {{ rflight.origin.city }} to {{ rflight.destination.city }} &bull;
                     {{ formatDateTime(rflight.departure_time) }} &rarr; {{ formatDateTime(rflight.arrival_time) }} &bull;
@@ -346,7 +249,7 @@
 
               <button
                 id="continue-checkout-btn"
-                class="btn da-btn-primary w-100"
+                class="btn da-btn-primary w-100 py-2"
                 :disabled="search.tripType === 'round_trip' && (!selectedReturnFlight || !selectedReturnSeat)"
                 @click="proceedToCheckout"
               >
@@ -374,7 +277,9 @@
           <div class="col-lg-7">
             <div class="da-card p-4 mb-4">
               <h2 class="h6 fw-bold mb-3">Contact &amp; Personal Cabinet Email</h2>
-              <label for="contact-email" class="form-label">Email address (tickets, bill &amp; cabinet credentials will be sent here)</label>
+              <label for="contact-email" class="form-label small text-muted">
+                Tickets, itemized invoice &amp; cabinet credentials will be emailed here
+              </label>
               <input
                 id="contact-email"
                 v-model="contactEmail"
@@ -412,9 +317,9 @@
 
           <div class="col-lg-5">
             <div class="da-card p-4">
-              <h2 class="h6 fw-bold mb-2">Emulated Payment Gateway</h2>
+              <h2 class="h6 fw-bold mb-2">Payment Gateway</h2>
               <p class="small text-muted mb-3">
-                Safe open-source style payment simulator. Pick a test card or enter card details:
+                Pick a deterministic test card or enter card details:
               </p>
               <div class="d-flex flex-wrap gap-2 mb-3">
                 <button type="button" class="btn btn-outline-success btn-sm" @click="fillTestCard('4242424242424242')">
@@ -465,68 +370,25 @@
       </form>
     </div>
 
-    <!-- STEP 4: Confirmation Screen -->
-    <div v-if="step === 4 && confirmedResult" class="da-card p-4 p-md-5">
-      <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
-        <div>
-          <span class="badge text-bg-success mb-2">Booking Confirmed &amp; Paid</span>
-          <h1 class="h3 fw-bold mb-1">Booking {{ confirmedResult.booking.booking_reference }}</h1>
-          <p class="text-muted mb-0">
-            Tickets, itemized bill (<strong>{{ confirmedResult.payment.invoice_number }}</strong>), and your Personal Cabinet credentials have been emailed to
-            <strong>{{ confirmedResult.booking.contact_email }}</strong>.
-          </p>
-        </div>
-        <button class="btn da-btn-primary" @click="$emit('open-cabinet', confirmedResult.booking.contact_email)">
-          Open Personal Cabinet
-        </button>
-      </div>
-
-      <h2 class="h6 fw-bold mb-3">Issued Tickets</h2>
-      <div class="row g-3 mb-4">
-        <div v-for="t in confirmedResult.booking.tickets" :key="t.id" class="col-md-6">
-          <div class="da-boarding-pass p-3">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <span class="da-ticket-code">{{ t.ticket_code }}</span>
-              <span class="badge text-bg-primary">{{ t.status }}</span>
-            </div>
-            <div class="fw-bold">{{ t.passenger.full_name }}</div>
-            <div class="small text-muted">
-              Flight {{ t.flight_number }} ({{ t.origin.code }} &rarr; {{ t.destination.code }}) &bull;
-              Seat {{ t.seat_number }} ({{ t.seat_type.name }}) &bull; Gate {{ t.gate }}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="bg-light rounded p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <span>Transaction: <code>{{ confirmedResult.payment.transaction_id }}</code></span>
-        <span>Invoice: <code>{{ confirmedResult.payment.invoice_number }}</code></span>
-        <strong>Total Paid: ${{ confirmedResult.payment.amount }}</strong>
-        <a
-          id="download-invoice-pdf-btn"
-          :href="`/api/v1/payments/${confirmedResult.payment.id}/invoice.pdf`"
-          target="_blank"
-          rel="noopener"
-          class="btn btn-outline-primary btn-sm"
-        >
-          Download PDF Invoice
-        </a>
-      </div>
-
-      <div class="mt-4">
-        <button class="btn btn-outline-primary" @click="resetFlow">Book Another Flight</button>
-      </div>
-    </div>
+    <!-- STEP 4: Confirmation -->
+    <BookingConfirmation
+      v-if="step === 4 && confirmedResult"
+      :confirmed-result="confirmedResult"
+      @open-cabinet="$emit('open-cabinet', $event)"
+      @reset="resetFlow"
+    />
   </section>
 </template>
 
 <script>
 import { defaultOffsetDate, defaultTomorrowDate, formatDateTime } from "../../shared/api";
+import BookingConfirmation from "./BookingConfirmation.vue";
+import BookingSearchHero from "./BookingSearchHero.vue";
 import SeatMapPicker from "./SeatMapPicker.vue";
 
 export default {
   name: "BookingFlow",
-  components: { SeatMapPicker },
+  components: { BookingSearchHero, BookingConfirmation, SeatMapPicker },
   props: {
     api: { type: Object, required: true },
   },
