@@ -60,22 +60,51 @@ class Flight(models.Model):
     def __str__(self) -> str:
         return f"{self.flight_number} ({self.origin.code} -> {self.destination.code})"
 
-    def seat_availability(self) -> list[dict]:
-        """Return seat capacity, booked count, available count, and unit fare per SeatType."""
+    @classmethod
+    def attach_booked_counts(cls, flights: list["Flight"]) -> list["Flight"]:
+        """Bulk-load non-cancelled ticket counts for a list of flights in a single SQL query."""
+        if not flights:
+            return flights
         from apps.bookings.models import Ticket, TicketStatus
 
-        booked_counts = {}
-        active_tickets = (
-            Ticket.objects.filter(flight=self)
+        flight_ids = [f.id for f in flights]
+        rows = (
+            Ticket.objects.filter(flight_id__in=flight_ids)
             .exclude(status=TicketStatus.CANCELLED)
-            .values("seat_type_id")
+            .values("flight_id", "seat_type_id")
             .annotate(cnt=models.Count("id"))
         )
-        for row in active_tickets:
-            booked_counts[row["seat_type_id"]] = row["cnt"]
+        counts_map: dict = {fid: {} for fid in flight_ids}
+        for row in rows:
+            counts_map[row["flight_id"]][row["seat_type_id"]] = row["cnt"]
+        for flight in flights:
+            flight._prefetched_booked_counts = counts_map.get(flight.id, {})
+            flight._seat_availability_cache = None
+        return flights
+
+    def seat_availability(self) -> list[dict]:
+        """Return seat capacity, booked count, available count, and unit fare per SeatType."""
+        cached = getattr(self, "_seat_availability_cache", None)
+        if cached is not None:
+            return cached
+
+        booked_counts = getattr(self, "_prefetched_booked_counts", None)
+        if booked_counts is None:
+            from apps.bookings.models import Ticket, TicketStatus
+
+            booked_counts = {}
+            active_tickets = (
+                Ticket.objects.filter(flight=self)
+                .exclude(status=TicketStatus.CANCELLED)
+                .values("seat_type_id")
+                .annotate(cnt=models.Count("id"))
+            )
+            for row in active_tickets:
+                booked_counts[row["seat_type_id"]] = row["cnt"]
 
         result = []
-        for cfg in self.airplane.seat_configs.select_related("seat_type").all():
+        # Iterate .all() directly to honor airplane__seat_configs__seat_type prefetch cache
+        for cfg in self.airplane.seat_configs.all():
             booked = booked_counts.get(cfg.seat_type_id, 0)
             available = max(cfg.seat_count - booked, 0)
             fare = (self.base_price * cfg.seat_type.price_multiplier).quantize(Decimal("0.01"))
@@ -91,6 +120,8 @@ class Flight(models.Model):
                     "available_seats": available,
                 }
             )
+        if getattr(self, "_prefetched_booked_counts", None) is not None:
+            self._seat_availability_cache = result
         return result
 
     def total_available_seats(self) -> int:
