@@ -152,4 +152,24 @@ test.describe("DjangoAir ERP End-to-End Browser Flows", () => {
     await expect(page.locator(".da-ticket-code")).toHaveCount(2);
     await expect(page.getByText(`Seat ${chosenOutSeat}`)).toBeVisible();
   });
+
+  test("AI Disruption & Rebooking Copilot retrieves policy citations and executes HITL rebooking", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page.click("#nav-personal-cabinet");
+    await page.click("#fill-demo-customer-btn");
+    await page.click("#cabinet-login-btn");
+
+    await expect(page.getByText("Disruption & Rebooking Assistant")).toBeVisible();
+
+    // Ask Copilot for rebooking options on Alice's upcoming flight
+    await page.click("#copilot-chip-rebook");
+    await expect(page.getByText("Cited Airline Policy Clauses (RAG)")).toBeVisible();
+    await expect(page.locator("#copilot-confirm-proposal-btn")).toBeVisible();
+
+    // Human-in-the-loop confirmation executes the proposal cleanly
+    await page.click("#copilot-confirm-proposal-btn");
+    await expect(page.getByText(/Rebooking confirmed!/i)).toBeVisible();
+  });
 });

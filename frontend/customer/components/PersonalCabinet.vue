@@ -178,6 +178,9 @@
         </div>
       </div>
 
+      <!-- AI Disruption & Rebooking Copilot -->
+      <CopilotAssistant :api="api" @rebooked="loadOverview" />
+
       <!-- Previous Flights -->
       <div class="da-card p-4">
         <h2 class="h5 fw-bold mb-3">Previous Flights</h2>
@@ -215,9 +218,11 @@
 
 <script>
 import { formatDateTime } from "../../shared/api";
+import CopilotAssistant from "./CopilotAssistant.vue";
 
 export default {
   name: "PersonalCabinet",
+  components: { CopilotAssistant },
   props: {
     api: { type: Object, required: true },
     prefillEmail: { type: String, default: "" },
