@@ -1,45 +1,55 @@
 <template>
-  <div>
+  <div class="d-flex flex-column min-vh-100">
     <header class="da-navbar py-3 mb-4">
       <div class="container d-flex flex-wrap justify-content-between align-items-center gap-3">
         <div class="d-flex align-items-center gap-2">
-          <a href="/staff/" class="da-brand fs-4">DjangoAir Operations</a>
+          <a href="/staff/" class="da-brand fs-4">
+            <span class="da-brand-mark" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" />
+              </svg>
+            </span>
+            <span>DjangoAir Operations</span>
+          </a>
           <span class="badge text-bg-warning text-dark">Staff Portal</span>
         </div>
 
-        <div class="d-flex align-items-center gap-2">
+        <div class="d-flex align-items-center flex-wrap gap-2">
           <span v-if="user" class="text-white small me-2">
             {{ user.email }} &bull;
             <strong class="text-warning">{{ roleLabel(user.role) }}</strong>
           </span>
-          <a href="/" class="btn btn-sm btn-outline-light">Customer Site</a>
-          <button v-if="user" class="btn btn-sm btn-outline-danger" @click="logout">Sign Out</button>
+          <a href="/" class="btn da-nav-btn btn-outline-light">Customer Site</a>
+          <button v-if="user" class="btn da-nav-btn btn-outline-danger" @click="logout">Sign Out</button>
         </div>
       </div>
     </header>
 
-    <main class="container pb-5">
+    <main class="container pb-5 flex-grow-1">
       <!-- Staff Login -->
-      <div v-if="!user" class="row justify-content-center">
+      <div v-if="!user" class="row justify-content-center py-3">
         <div class="col-md-5">
-          <div class="da-card p-4">
+          <div class="da-card p-4 p-md-5">
+            <div class="small text-uppercase fw-bold text-primary mb-1" style="letter-spacing: 0.08em;">
+              Airport Operations Access
+            </div>
             <h1 class="h4 fw-bold mb-2">Staff Sign In</h1>
             <p class="text-muted small mb-4">
-              Access is granted strictly by ascending role hierarchy: Gate Manager &lt; Check-in Manager &lt; Supervisor.
+              Access is enforced by ascending role hierarchy: Gate Manager &lt; Check-in Manager &lt; Supervisor.
             </p>
 
             <div v-if="error" class="alert alert-danger py-2 small">{{ error }}</div>
 
             <form @submit.prevent="login">
               <div class="mb-3">
-                <label for="staff-email" class="form-label">Staff Email</label>
+                <label for="staff-email" class="form-label fw-semibold small">Staff Email</label>
                 <input id="staff-email" v-model="loginForm.email" type="email" class="form-control" required />
               </div>
               <div class="mb-3">
-                <label for="staff-password" class="form-label">Password</label>
+                <label for="staff-password" class="form-label fw-semibold small">Password</label>
                 <input id="staff-password" v-model="loginForm.password" type="password" class="form-control" required />
               </div>
-              <button id="staff-login-btn" type="submit" class="btn da-btn-primary w-100 mb-3" :disabled="loading">
+              <button id="staff-login-btn" type="submit" class="btn da-btn-primary w-100 py-2 mb-3" :disabled="loading">
                 {{ loading ? "Authenticating..." : "Sign In to Operations" }}
               </button>
             </form>
@@ -64,7 +74,7 @@
 
       <!-- Role-Gated Operations Workspace -->
       <div v-else>
-        <ul class="nav nav-pills mb-4 gap-2">
+        <ul class="nav da-staff-tabs mb-4 gap-2" role="tablist">
           <li v-if="user.staff_rank >= 1" class="nav-item">
             <button
               class="nav-link"
@@ -99,6 +109,17 @@
         <SupervisorPanel v-if="activeTab === 'supervisor' && user.staff_rank >= 3" :api="api" />
       </div>
     </main>
+
+    <footer class="da-footer py-3 mt-auto">
+      <div class="container d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span>DjangoAir Staff Operations &bull; Hierarchical RBAC Control Deck</span>
+        <div class="d-flex flex-wrap gap-3">
+          <a href="/api/v1/docs/" target="_blank" rel="noopener">API Docs</a>
+          <a href="/api/v1/metrics/" target="_blank" rel="noopener">Prometheus Metrics</a>
+          <a href="/">Customer Booking</a>
+        </div>
+      </div>
+    </footer>
   </div>
 </template>
 

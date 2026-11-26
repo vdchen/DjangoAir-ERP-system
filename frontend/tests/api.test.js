@@ -1,6 +1,11 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createApiClient, defaultTomorrowDate, formatDateTime } from "../shared/api";
+import {
+  createApiClient,
+  defaultOffsetDate,
+  defaultTomorrowDate,
+  formatDateTime,
+} from "../shared/api";
 
 describe("DjangoAir shared API client & utilities", () => {
   beforeEach(() => {
@@ -60,9 +65,34 @@ describe("DjangoAir shared API client & utilities", () => {
     );
   });
 
-  it("formats dates cleanly and computes tomorrow's ISO date", () => {
+  it("flattens field-level DRF validation errors cleanly", async () => {
+    const api = createApiClient("test_token");
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      json: async () => ({ seat_number: ["Seat 12A is already taken."] }),
+    });
+    await expect(api.request("/bookings/", { method: "POST", body: {} })).rejects.toThrow(
+      "Seat 12A is already taken."
+    );
+  });
+
+  it("formats dates cleanly and computes UTC offset dates for round-trip defaults", () => {
     expect(formatDateTime(null)).toBe("—");
     expect(formatDateTime("2026-11-26T10:30:00Z")).toContain("2026");
-    expect(defaultTomorrowDate()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    const tomorrow = defaultTomorrowDate();
+    const plus3 = defaultOffsetDate(3);
+    expect(tomorrow).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(plus3).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(new Date(plus3) > new Date(tomorrow)).toBe(true);
+  });
+
+  it("raises a descriptive error when downloadBlob receives non-OK status", async () => {
+    const api = createApiClient("blob_token");
+    api.setToken("jwt-abc");
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({ ok: false, status: 404 });
+    await expect(api.downloadBlob("/cabinet/tickets/DA-MISS/boarding-pass.pdf", "bp.pdf")).rejects.toThrow(
+      "Download failed (404)"
+    );
   });
 });
