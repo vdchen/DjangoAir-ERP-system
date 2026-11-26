@@ -13,6 +13,10 @@ class PassengerInputSerializer(serializers.Serializer):
     last_name = serializers.CharField(max_length=120)
     document_number = serializers.CharField(max_length=64)
     date_of_birth = serializers.DateField(required=False, allow_null=True)
+    seat_number = serializers.CharField(max_length=8, required=False, allow_blank=True, allow_null=True)
+    return_seat_number = serializers.CharField(
+        max_length=8, required=False, allow_blank=True, allow_null=True
+    )
 
 
 class PassengerSerializer(serializers.ModelSerializer):
@@ -103,6 +107,12 @@ class BookingSerializer(serializers.ModelSerializer):
 class BookingCreateSerializer(serializers.Serializer):
     flight_id = serializers.UUIDField()
     seat_type_id = serializers.UUIDField()
+    return_flight_id = serializers.UUIDField(required=False, allow_null=True)
+    return_seat_type_id = serializers.UUIDField(required=False, allow_null=True)
+    hold_token = serializers.CharField(max_length=64, required=False, allow_blank=True, allow_null=True)
+    return_hold_token = serializers.CharField(
+        max_length=64, required=False, allow_blank=True, allow_null=True
+    )
     contact_email = serializers.EmailField()
     passengers = PassengerInputSerializer(many=True)
     option_ids = serializers.ListField(

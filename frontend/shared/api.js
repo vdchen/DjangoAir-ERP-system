@@ -83,8 +83,12 @@ export function formatDateTime(isoStr) {
   });
 }
 
-export function defaultTomorrowDate() {
+export function defaultOffsetDate(daysOffset = 1) {
   const d = new Date();
-  d.setUTCDate(d.getUTCDate() + 1);
+  d.setUTCDate(d.getUTCDate() + daysOffset);
   return d.toISOString().slice(0, 10);
+}
+
+export function defaultTomorrowDate() {
+  return defaultOffsetDate(1);
 }

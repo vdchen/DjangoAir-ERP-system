@@ -1,12 +1,14 @@
 from decimal import Decimal
 
+from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from apps.accounts.models import CustomerProfile, User, UserRole
-from apps.fleet.models import AirplaneSeatConfig, SeatType
+from apps.fleet.models import AirplaneSeatConfig
 from apps.flights.models import Flight, FlightStatus, Option
+from apps.flights.seat_map import SeatHoldConflictError, verify_and_pick_seats
 from apps.integrations.events import publish_domain_event
 
 from .models import (
@@ -21,41 +23,17 @@ from .models import (
 )
 
 
-def _allocate_seat_number(flight: Flight, seat_type: SeatType, offset: int) -> str:
-    prefix = seat_type.code[:1].upper()
-    existing_count = (
-        Ticket.objects.filter(flight=flight, seat_type=seat_type)
-        .exclude(status=TicketStatus.CANCELLED)
-        .count()
-    )
-    index = existing_count + offset
-    row = (index // 6) + 1
-    col = "ABCDEF"[index % 6]
-    return f"{prefix}{row}{col}"
-
-
-@transaction.atomic
-def create_booking(
+def _validate_leg_and_pick_seats(
     *,
-    flight_id,
+    flight: Flight,
     seat_type_id,
-    contact_email: str,
-    passengers_data: list[dict],
-    option_ids: list | None = None,
-    discount_code: str | None = None,
-    authenticated_user: User | None = None,
-) -> Booking:
-    if not passengers_data:
-        raise ValidationError({"passengers": "At least one passenger is required."})
-
-    # Row-level lock on Flight to prevent concurrent overbooking
-    flight = (
-        Flight.objects.select_for_update()
-        .select_related("airplane", "origin", "destination")
-        .get(pk=flight_id)
-    )
+    passengers_count: int,
+    requested_seats: list[str | None],
+    hold_token: str | None,
+    leg_label: str,
+) -> tuple[AirplaneSeatConfig, list[str], list[str]]:
     if flight.status != FlightStatus.SCHEDULED:
-        raise ValidationError({"flight": "This flight is not open for booking."})
+        raise ValidationError({leg_label: "This flight is not open for booking."})
 
     try:
         seat_config = AirplaneSeatConfig.objects.select_related("seat_type").get(
@@ -70,7 +48,7 @@ def create_booking(
         .count()
     )
     available = seat_config.seat_count - booked_count
-    if available < len(passengers_data):
+    if available < passengers_count:
         raise ValidationError(
             {
                 "passengers": (
@@ -78,6 +56,88 @@ def create_booking(
                 )
             }
         )
+
+    try:
+        assigned, keys_to_release = verify_and_pick_seats(
+            flight=flight,
+            seat_type_id=str(seat_type_id),
+            requested_seats=requested_seats,
+            hold_token=hold_token,
+        )
+    except SeatHoldConflictError as exc:
+        raise ValidationError({"seat_number": str(exc)}) from exc
+
+    return seat_config, assigned, keys_to_release
+
+
+@transaction.atomic
+def create_booking(
+    *,
+    flight_id,
+    seat_type_id,
+    contact_email: str,
+    passengers_data: list[dict],
+    option_ids: list | None = None,
+    discount_code: str | None = None,
+    authenticated_user: User | None = None,
+    return_flight_id=None,
+    return_seat_type_id=None,
+    hold_token: str | None = None,
+    return_hold_token: str | None = None,
+) -> Booking:
+    if not passengers_data:
+        raise ValidationError({"passengers": "At least one passenger is required."})
+
+    if return_flight_id and str(return_flight_id) == str(flight_id):
+        raise ValidationError({"return_flight_id": "Return flight must differ from outbound flight."})
+
+    # Acquire row-level locks on Flight(s) in deterministic UUID order to prevent deadlocks
+    lock_ids = sorted({str(flight_id), *([str(return_flight_id)] if return_flight_id else [])})
+    locked_flights = {
+        str(f.id): f
+        for f in Flight.objects.select_for_update()
+        .select_related("airplane", "origin", "destination")
+        .filter(pk__in=lock_ids)
+        .order_by("id")
+    }
+    if str(flight_id) not in locked_flights:
+        raise ValidationError({"flight_id": "Outbound flight not found."})
+    flight = locked_flights[str(flight_id)]
+
+    return_flight: Flight | None = None
+    if return_flight_id:
+        if str(return_flight_id) not in locked_flights:
+            raise ValidationError({"return_flight_id": "Return flight not found."})
+        return_flight = locked_flights[str(return_flight_id)]
+        if return_flight.departure_time <= flight.departure_time:
+            raise ValidationError(
+                {"return_flight_id": "Return flight must depart after the outbound flight."}
+            )
+
+    outbound_requests = [pdata.get("seat_number") for pdata in passengers_data]
+    seat_config, outbound_seats, release_keys = _validate_leg_and_pick_seats(
+        flight=flight,
+        seat_type_id=seat_type_id,
+        passengers_count=len(passengers_data),
+        requested_seats=outbound_requests,
+        hold_token=hold_token,
+        leg_label="flight",
+    )
+
+    return_seat_config: AirplaneSeatConfig | None = None
+    return_seats: list[str] = []
+    if return_flight is not None:
+        effective_ret_seat_type = return_seat_type_id or seat_type_id
+        ret_requests = [pdata.get("return_seat_number") for pdata in passengers_data]
+        return_seat_config, return_seats, ret_release_keys = _validate_leg_and_pick_seats(
+            flight=return_flight,
+            seat_type_id=effective_ret_seat_type,
+            passengers_count=len(passengers_data),
+            requested_seats=ret_requests,
+            hold_token=return_hold_token or hold_token,
+            leg_label="return_flight",
+        )
+        release_keys.extend(ret_release_keys)
 
     discount = None
     if discount_code:
@@ -107,6 +167,9 @@ def create_booking(
         CustomerProfile.objects.get_or_create(user=user)
 
     selected_options = list(Option.objects.filter(id__in=(option_ids or []), is_active=True))
+    options_sum = sum((opt.price for opt in selected_options), Decimal("0.00")).quantize(
+        Decimal("0.01")
+    )
     unit_base_fare = (flight.base_price * seat_config.seat_type.price_multiplier).quantize(
         Decimal("0.01")
     )
@@ -118,6 +181,7 @@ def create_booking(
         status=BookingStatus.RESERVED,
     )
 
+    passengers: list[Passenger] = []
     for idx, pdata in enumerate(passengers_data):
         passenger = Passenger.objects.create(
             first_name=pdata["first_name"],
@@ -125,16 +189,15 @@ def create_booking(
             document_number=pdata["document_number"],
             date_of_birth=pdata.get("date_of_birth"),
         )
-        options_sum = sum((opt.price for opt in selected_options), Decimal("0.00"))
-        seat_number = _allocate_seat_number(flight, seat_config.seat_type, idx)
+        passengers.append(passenger)
         ticket = Ticket.objects.create(
             booking=booking,
             flight=flight,
             passenger=passenger,
             seat_type=seat_config.seat_type,
-            seat_number=seat_number,
+            seat_number=outbound_seats[idx],
             base_fare=unit_base_fare,
-            options_total=options_sum.quantize(Decimal("0.01")),
+            options_total=options_sum,
             status=TicketStatus.RESERVED,
         )
         for opt in selected_options:
@@ -145,6 +208,33 @@ def create_booking(
                 unit_price=opt.price,
                 added_stage=AddedStage.BOOKING,
             )
+
+    if return_flight is not None and return_seat_config is not None:
+        return_base_fare = (
+            return_flight.base_price * return_seat_config.seat_type.price_multiplier
+        ).quantize(Decimal("0.01"))
+        for idx, passenger in enumerate(passengers):
+            ret_ticket = Ticket.objects.create(
+                booking=booking,
+                flight=return_flight,
+                passenger=passenger,
+                seat_type=return_seat_config.seat_type,
+                seat_number=return_seats[idx],
+                base_fare=return_base_fare,
+                options_total=options_sum,
+                status=TicketStatus.RESERVED,
+            )
+            for opt in selected_options:
+                TicketOption.objects.create(
+                    ticket=ret_ticket,
+                    option=opt,
+                    quantity=1,
+                    unit_price=opt.price,
+                    added_stage=AddedStage.BOOKING,
+                )
+
+    if release_keys:
+        transaction.on_commit(lambda keys=list(release_keys): cache.delete_many(keys))
 
     booking.recalculate_totals()
     return booking
