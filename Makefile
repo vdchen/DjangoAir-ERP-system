@@ -1,4 +1,4 @@
-.PHONY: up up-dev down logs migrate seed lint security test test-env test-backend test-flask test-frontend build-frontend validate-envs smoke e2e benchmark
+.PHONY: up up-dev down logs migrate seed lint typecheck security test test-env test-backend test-flask test-frontend build-frontend validate-envs smoke e2e benchmark
 
 up:
 	docker compose up -d --build
@@ -20,6 +20,9 @@ seed:
 
 lint:
 	docker compose run --rm --no-deps backend ruff check .
+
+typecheck:
+	docker compose run --rm --no-deps backend mypy apps config
 
 security:
 	docker compose run --rm --no-deps backend bandit -r apps config -ll

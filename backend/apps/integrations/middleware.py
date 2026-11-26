@@ -2,6 +2,8 @@ import logging
 import time
 import uuid
 
+from config.telemetry import get_current_trace_context
+
 from .logging_utils import request_id_var
 from .metrics import HTTP_REQUEST_DURATION_SECONDS, HTTP_REQUESTS_TOTAL
 
@@ -23,7 +25,7 @@ def _normalize_endpoint(path: str) -> str:
 
 
 class RequestCorrelationAndMetricsMiddleware:
-    """Propagates X-Request-ID, logs structured request metrics, and records Prometheus telemetry."""
+    """Propagates X-Request-ID/X-Trace-ID, logs structured request metrics, and records Prometheus telemetry."""
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -40,6 +42,9 @@ class RequestCorrelationAndMetricsMiddleware:
             request_id_var.reset(token)
 
         response["X-Request-ID"] = req_id
+        trace_id, _ = get_current_trace_context()
+        if trace_id != "-":
+            response["X-Trace-ID"] = trace_id
 
         endpoint = _normalize_endpoint(request.path)
         if not endpoint.endswith("/metrics"):

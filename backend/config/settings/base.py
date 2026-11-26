@@ -173,10 +173,20 @@ GOOGLE_OAUTH_CLIENT_ID = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "")
 GOOGLE_OAUTH_CLIENT_SECRET = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", "")
 GOOGLE_OAUTH_DEV_MOCK_ENABLED = os.environ.get("GOOGLE_OAUTH_DEV_MOCK_ENABLED", "0") == "1"
 
+# Pluggable Payment Gateway Provider ("emulated" | "stripe")
+PAYMENT_PROVIDER = os.environ.get("PAYMENT_PROVIDER", "emulated").strip().lower()
+STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+
+# OpenTelemetry Distributed Tracing (OTLP HTTP)
+OTEL_TRACES_ENABLED = os.environ.get("OTEL_TRACES_ENABLED", "0") == "1"
+OTEL_EXPORTER_OTLP_ENDPOINT = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+OTEL_SERVICE_NAME = os.environ.get("OTEL_SERVICE_NAME", "djangoair-backend")
+
 # Structured Logging (set LOG_FORMAT=json for single-line JSON logs with request_id)
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
 LOG_FORMAT = os.environ.get("LOG_FORMAT", "standard")
-LOGGING = {
+LOGGING: dict = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {

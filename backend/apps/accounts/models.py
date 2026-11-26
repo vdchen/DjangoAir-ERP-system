@@ -14,10 +14,10 @@ class UserRole(models.TextChoices):
     SUPERVISOR = "SUPERVISOR", "Supervisor"
 
 
-STAFF_ROLE_RANK = {
-    UserRole.GATE_MANAGER: 1,
-    UserRole.CHECKIN_MANAGER: 2,
-    UserRole.SUPERVISOR: 3,
+STAFF_ROLE_RANK: dict[str, int] = {
+    str(UserRole.GATE_MANAGER): 1,
+    str(UserRole.CHECKIN_MANAGER): 2,
+    str(UserRole.SUPERVISOR): 3,
 }
 
 
@@ -79,7 +79,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     @property
     def staff_rank(self) -> int:
         if self.is_superuser:
-            return STAFF_ROLE_RANK[UserRole.SUPERVISOR]
+            return STAFF_ROLE_RANK[str(UserRole.SUPERVISOR)]
         return STAFF_ROLE_RANK.get(self.role, 0)
 
     def has_min_staff_role(self, min_role: str) -> bool:

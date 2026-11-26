@@ -1,4 +1,5 @@
 import logging
+import smtplib
 
 from celery import shared_task
 from django.conf import settings
@@ -105,7 +106,7 @@ def send_booking_confirmation_email(
             status=EmailLog.Status.SENT,
         )
         return {"status": "sent", "recipient": booking.contact_email}
-    except Exception as exc:
+    except (smtplib.SMTPException, OSError, RuntimeError) as exc:
         logger.exception("Failed sending booking confirmation email for %s", booking_id)
         EmailLog.objects.create(
             recipient=booking.contact_email,
@@ -149,7 +150,7 @@ def send_flight_cancellation_email(
             status=EmailLog.Status.SENT,
         )
         return {"status": "sent", "recipient": recipient}
-    except Exception as exc:
+    except (smtplib.SMTPException, OSError, RuntimeError) as exc:
         logger.exception("Failed sending flight cancellation email to %s", recipient)
         EmailLog.objects.create(
             recipient=recipient,
