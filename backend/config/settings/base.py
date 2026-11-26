@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "apps.payments",
     "apps.notifications",
     "apps.integrations",
+    "apps.copilot",
 ]
 
 MIDDLEWARE = [
@@ -182,6 +183,13 @@ STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 OTEL_TRACES_ENABLED = os.environ.get("OTEL_TRACES_ENABLED", "0") == "1"
 OTEL_EXPORTER_OTLP_ENDPOINT = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "")
 OTEL_SERVICE_NAME = os.environ.get("OTEL_SERVICE_NAME", "djangoair-backend")
+
+# AI Disruption & Rebooking Copilot ("deterministic" | "openai" | "gemini")
+AI_COPILOT_PROVIDER = os.environ.get("AI_COPILOT_PROVIDER", "deterministic").strip().lower()
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+OPENAI_COPILOT_MODEL = os.environ.get("OPENAI_COPILOT_MODEL", "gpt-4o-mini")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_COPILOT_MODEL = os.environ.get("GEMINI_COPILOT_MODEL", "gemini-2.0-flash")
 
 # Structured Logging (set LOG_FORMAT=json for single-line JSON logs with request_id)
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")

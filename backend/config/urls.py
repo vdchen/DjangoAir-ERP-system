@@ -71,4 +71,5 @@ urlpatterns = [
     path("api/v1/", include("apps.bookings.urls")),
     path("api/v1/", include("apps.payments.urls")),
     path("api/v1/", include("apps.integrations.urls")),
+    path("api/v1/", include("apps.copilot.urls")),
 ]
