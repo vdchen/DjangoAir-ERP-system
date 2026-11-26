@@ -38,3 +38,12 @@ services:
   webhook_mock:
     volumes:
       - ./services/webhook_mock:/app
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.63.0
+    profiles: ["observability"]
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
+      - "4318:4318"

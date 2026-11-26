@@ -1,161 +1,68 @@
-import secrets
-
-from django.db import transaction
+from django.conf import settings
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts.models import CustomerProfile
-from apps.bookings.models import Booking, BookingStatus, TicketStatus
+from apps.bookings.pdf import generate_invoice_pdf
 from apps.bookings.serializers import BookingSerializer
-from apps.integrations.events import publish_domain_event
 from apps.integrations.idempotency import idempotent_endpoint
-from apps.integrations.metrics import PAYMENTS_TOTAL
-from apps.notifications.tasks import send_booking_confirmation_email
 
-from .gateway import EmulatedGatewayProvider
-from .models import Payment, PaymentStatus
+from .models import Payment
 from .serializers import BalanceTopUpSerializer, PaymentChargeInputSerializer, PaymentSerializer
+from .services import (
+    PaymentProcessingError,
+    charge_booking_payment,
+    handle_stripe_webhook_event,
+    top_up_customer_balance,
+)
 
 
 class PaymentChargeView(APIView):
-    """Process emulated card or balance payment for a RESERVED booking."""
+    """Process card (emulated or Stripe) or cabinet-balance payment for a RESERVED booking."""
 
     permission_classes = [AllowAny]
 
     @idempotent_endpoint
-    @transaction.atomic
     def post(self, request):
         serializer = PaymentChargeInputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        booking = get_object_or_404(
-            Booking.objects.select_for_update().select_related("user"),
-            booking_reference__iexact=data["booking_reference"].strip(),
-        )
-        if booking.status == BookingStatus.PAID:
-            return Response(
-                {"detail": "Booking is already paid."}, status=status.HTTP_400_BAD_REQUEST
-            )
-        if booking.status == BookingStatus.CANCELLED:
-            return Response(
-                {"detail": "Cannot pay for a cancelled booking."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        payment_method = data["payment_method"]
-        if payment_method == "BALANCE":
-            profile, _ = CustomerProfile.objects.get_or_create(user=booking.user)
-            try:
-                profile.debit(booking.total_amount)
-            except ValueError as exc:
-                PAYMENTS_TOTAL.labels(provider="cabinet_balance", status="FAILED").inc()
-                return Response({"detail": str(exc)}, status=status.HTTP_402_PAYMENT_REQUIRED)
-            payment = Payment.objects.create(
-                booking=booking,
-                transaction_id=f"BAL-{secrets.token_hex(6).upper()}",
-                provider="cabinet_balance",
-                amount=booking.total_amount,
-                status=PaymentStatus.SUCCEEDED,
-                card_last4="BAL",
-                paid_at=timezone.now(),
-            )
-            PAYMENTS_TOTAL.labels(provider="cabinet_balance", status="SUCCEEDED").inc()
-        else:
-            gateway = EmulatedGatewayProvider()
-            result = gateway.charge(
-                amount=booking.total_amount,
+        try:
+            result = charge_booking_payment(
+                booking_reference=data["booking_reference"],
+                payment_method=data["payment_method"],
                 card_number=data["card_number"],
                 exp_month=data["exp_month"],
                 exp_year=data["exp_year"],
                 cvv=data["cvv"],
                 cardholder_name=data["cardholder_name"],
+                idempotency_key=request.headers.get("Idempotency-Key"),
             )
-            payment = Payment.objects.create(
-                booking=booking,
-                transaction_id=result.transaction_id,
-                provider=result.provider,
-                amount=booking.total_amount,
-                status=PaymentStatus.SUCCEEDED if result.success else PaymentStatus.FAILED,
-                card_last4=result.card_last4,
-                failure_reason=result.failure_reason,
-                paid_at=timezone.now() if result.success else None,
+        except PaymentProcessingError as exc:
+            body: dict = {"detail": exc.detail}
+            if exc.payment is not None:
+                body["payment"] = PaymentSerializer(exc.payment).data
+            return Response(body, status=exc.status_code)
+
+        if not result.success:
+            return Response(
+                {
+                    "detail": result.error_detail,
+                    "payment": PaymentSerializer(result.payment).data,
+                },
+                status=result.status_code,
             )
-            PAYMENTS_TOTAL.labels(provider=result.provider, status=payment.status).inc()
-            if not result.success:
-                return Response(
-                    {
-                        "detail": result.failure_reason,
-                        "payment": PaymentSerializer(payment).data,
-                    },
-                    status=status.HTTP_402_PAYMENT_REQUIRED,
-                )
-
-        # Transition booking & tickets to PAID
-        booking.status = BookingStatus.PAID
-        booking.save(update_fields=["status"])
-        booking.tickets.filter(status=TicketStatus.RESERVED).update(status=TicketStatus.PAID)
-
-        # Auto-provision password for newly created guest accounts so they can access Personal Cabinet
-        generated_password = None
-        if not booking.user.has_usable_password():
-            generated_password = f"Air-{secrets.token_hex(4)}"
-            booking.user.set_password(generated_password)
-            booking.user.save(update_fields=["password"])
-
-        # Enqueue confirmation email with tickets, invoice/bill, and Personal Cabinet credentials
-        send_booking_confirmation_email.delay(
-            booking_id=str(booking.id),
-            generated_password=generated_password,
-            invoice_number=payment.invoice_number,
-        )
-
-        # Reload booking for response & domain events
-        booking = (
-            Booking.objects.select_related("discount")
-            .prefetch_related(
-                "tickets__flight__origin",
-                "tickets__flight__destination",
-                "tickets__passenger",
-                "tickets__seat_type",
-                "tickets__ticket_options__option",
-            )
-            .get(pk=booking.pk)
-        )
-        first_ticket = booking.tickets.first()
-        flight_number = first_ticket.flight.flight_number if first_ticket else ""
-
-        publish_domain_event(
-            "booking.confirmed",
-            {
-                "booking_reference": booking.booking_reference,
-                "flight_number": flight_number,
-                "total_amount": str(booking.total_amount),
-                "invoice_number": payment.invoice_number,
-                "ticket_codes": [t.ticket_code for t in booking.tickets.all()],
-            },
-        )
-        publish_domain_event(
-            "payment.succeeded",
-            {
-                "booking_reference": booking.booking_reference,
-                "transaction_id": payment.transaction_id,
-                "invoice_number": payment.invoice_number,
-                "amount": str(payment.amount),
-                "provider": payment.provider,
-            },
-        )
 
         return Response(
             {
-                "booking": BookingSerializer(booking).data,
-                "payment": PaymentSerializer(payment).data,
+                "booking": BookingSerializer(result.booking).data,
+                "payment": PaymentSerializer(result.payment).data,
                 "cabinet_credentials_emailed": True,
-                "new_cabinet_account": generated_password is not None,
+                "new_cabinet_account": result.generated_password is not None,
             },
             status=status.HTTP_200_OK,
         )
@@ -176,19 +83,18 @@ class InvoiceDetailView(APIView):
             pk=pk,
         )
         booking = payment.booking
-        items = []
-        for t in booking.tickets.all():
-            items.append(
-                {
-                    "ticket_code": t.ticket_code,
-                    "passenger": t.passenger.full_name,
-                    "flight": f"{t.flight.flight_number} ({t.flight.origin.code} -> {t.flight.destination.code})",
-                    "seat": f"{t.seat_number} ({t.seat_type.name})",
-                    "base_fare": str(t.base_fare),
-                    "options_total": str(t.options_total),
-                    "luggage_fee": str(t.luggage_fee),
-                }
-            )
+        items = [
+            {
+                "ticket_code": t.ticket_code,
+                "passenger": t.passenger.full_name,
+                "flight": f"{t.flight.flight_number} ({t.flight.origin.code} -> {t.flight.destination.code})",
+                "seat": f"{t.seat_number} ({t.seat_type.name})",
+                "base_fare": str(t.base_fare),
+                "options_total": str(t.options_total),
+                "luggage_fee": str(t.luggage_fee),
+            }
+            for t in booking.tickets.all()
+        ]
         return Response(
             {
                 "invoice_number": payment.invoice_number,
@@ -213,25 +119,23 @@ class CabinetBalanceTopUpView(APIView):
         serializer = BalanceTopUpSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        gateway = EmulatedGatewayProvider()
-        result = gateway.charge(
-            amount=data["amount"],
-            card_number=data["card_number"],
-            exp_month=data["exp_month"],
-            exp_year=data["exp_year"],
-            cvv=data["cvv"],
-        )
-        if not result.success:
-            return Response(
-                {"detail": result.failure_reason}, status=status.HTTP_402_PAYMENT_REQUIRED
+        try:
+            res = top_up_customer_balance(
+                user=request.user,
+                amount=data["amount"],
+                card_number=data["card_number"],
+                exp_month=data["exp_month"],
+                exp_year=data["exp_year"],
+                cvv=data["cvv"],
             )
-        profile, _ = CustomerProfile.objects.get_or_create(user=request.user)
-        new_balance = profile.credit(data["amount"])
+        except PaymentProcessingError as exc:
+            return Response({"detail": exc.detail}, status=exc.status_code)
+
         return Response(
             {
-                "transaction_id": result.transaction_id,
-                "credited_amount": str(data["amount"]),
-                "balance": str(new_balance),
+                "transaction_id": res.transaction_id,
+                "credited_amount": str(res.credited_amount),
+                "balance": str(res.balance),
             },
             status=status.HTTP_200_OK,
         )
@@ -243,10 +147,6 @@ class InvoicePdfView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, _request, pk):
-        from django.http import HttpResponse
-
-        from apps.bookings.pdf import generate_invoice_pdf
-
         payment = get_object_or_404(Payment.objects.select_related("booking"), pk=pk)
         pdf_bytes = generate_invoice_pdf(payment)
         response = HttpResponse(pdf_bytes, content_type="application/pdf")
@@ -254,3 +154,43 @@ class InvoicePdfView(APIView):
             f'attachment; filename="invoice-{payment.invoice_number}.pdf"'
         )
         return response
+
+
+class StripeWebhookView(APIView):
+    """Receive and verify signed Stripe PaymentIntent webhook events."""
+
+    permission_classes = [AllowAny]
+    authentication_classes: list = []
+
+    def post(self, request):
+        import stripe
+
+        webhook_secret = getattr(settings, "STRIPE_WEBHOOK_SECRET", "").strip()
+        if not webhook_secret:
+            return Response(
+                {"detail": "Stripe webhook receiver is not configured."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        sig_header = request.headers.get("Stripe-Signature", "")
+        if not sig_header:
+            return Response(
+                {"detail": "Missing Stripe-Signature header."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            event = stripe.Webhook.construct_event(request.body, sig_header, webhook_secret)
+        except ValueError:
+            return Response(
+                {"detail": "Invalid Stripe webhook payload."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except stripe.SignatureVerificationError:
+            return Response(
+                {"detail": "Invalid Stripe webhook signature."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        result = handle_stripe_webhook_event(event)
+        return Response(result, status=status.HTTP_200_OK)

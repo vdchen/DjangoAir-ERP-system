@@ -55,7 +55,7 @@ def dispatch_webhook_event(event_type: str, envelope: dict) -> dict:
                 delivered += 1
             else:
                 failed += 1
-        except Exception as exc:
+        except (requests.RequestException, OSError) as exc:
             logger.warning("Webhook delivery failed for %s: %s", sub.target_url, exc)
             WebhookDelivery.objects.create(
                 subscription=sub,
@@ -84,7 +84,7 @@ def relay_outbox_event(outbox_id: str) -> dict:
     try:
         client = redis.Redis.from_url(settings.REDIS_URL, socket_connect_timeout=1, socket_timeout=1)
         client.publish(settings.REDIS_EVENTS_CHANNEL, json.dumps(outbox.payload, default=str))
-    except Exception as exc:
+    except (redis.RedisError, OSError) as exc:
         logger.debug("Redis publish unavailable for outbox %s: %s", outbox.id, exc)
 
     # 2. Deliver to active webhook subscriptions

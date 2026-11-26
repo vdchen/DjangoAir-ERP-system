@@ -53,6 +53,8 @@ class Flight(models.Model):
         max_length=20, choices=FlightStatus.choices, default=FlightStatus.SCHEDULED, db_index=True
     )
     available_options = models.ManyToManyField(Option, blank=True, related_name="flights")
+    _prefetched_booked_counts: dict | None = None
+    _seat_availability_cache: list[dict] | None = None
 
     class Meta:
         ordering = ["departure_time"]
