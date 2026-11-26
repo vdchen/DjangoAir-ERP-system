@@ -1,6 +1,6 @@
 # DjangoAir ERP System
 
-**DjangoAir** is a containerized Airline Management ERP system uniting customer flight booking, an emulated payment gateway, Personal Cabinet self-service, role-governed airport staff operations, asynchronous Celery email notifications, a real-time Flask-SocketIO mobile WebSocket API, and an HMAC-signed third-party webhook integration.
+**DjangoAir** is a containerized Airline Management ERP system uniting one-way & round-trip flight booking, an interactive cabin seat map with Redis TTL seat holds, pluggable payment gateways (Emulated + Stripe Sandbox/Webhooks), Personal Cabinet self-service (Google OAuth2 + QR PDF boarding passes & invoices), role-governed airport staff operations, asynchronous Celery notifications, a real-time Flask-SocketIO mobile WebSocket API, and an HMAC-signed third-party webhook integration.
 
 ## Documentation
 - [Architecture & Module Decomposition](docs/ARCHITECTURE.md)
@@ -14,12 +14,12 @@
 ## Tech Stack
 | Layer | Technology |
 | :--- | :--- |
-| **Core ERP Backend** | Python 3.12, Django 5.2 LTS, Django REST Framework, SimpleJWT, drf-spectacular, ReportLab, Prometheus Client |
+| **Core ERP Backend** | Python 3.12, Django 5.2 LTS, Django REST Framework, SimpleJWT, Stripe SDK, drf-spectacular, ReportLab, OpenTelemetry (OTLP HTTP), Prometheus Client |
 | **Mock Microservices** | Flask 3, Flask-SocketIO (`gevent`), HMAC-SHA256 + Replay-Window Webhook Verifier |
-| **Database & Cache/Broker** | PostgreSQL 16, Redis 7 |
+| **Database & Cache/Broker** | PostgreSQL 16, Redis 7 (Celery Broker, Pub/Sub & Atomic TTL Seat Holds) |
 | **Async Workers & Reliability** | Celery 5, Transactional Outbox + DLQ Replay, `Idempotency-Key` Deduplication, Mailpit |
-| **Independent Web Interfaces** | Webpack 5, Vue 3, Bootstrap 5 (separate Customer `/` & Staff `/staff/` SPAs) |
-| **Reverse Proxy, Testing & CI/CD** | Nginx 1.27, Docker Compose (`dev`/`test`/`staging`/`prod`), Pytest, Playwright E2E, GitHub Actions + GHCR |
+| **Independent Web Interfaces** | Webpack 5, Vue 3, Bootstrap 5 (separate Customer `/` & Staff `/staff/` SPAs, interactive cabin seat map) |
+| **Reverse Proxy, Quality & CI/CD** | Nginx 1.29, Docker Compose (`dev`/`test`/`staging`/`prod` + optional Jaeger `observability` profile), Pytest (96% cov), Vitest, Playwright E2E, `ruff`, `mypy`, `bandit`, Trivy, GitHub Actions + GHCR |
 
 ## Quickstart (Docker Compose)
 
@@ -28,18 +28,19 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-On startup, the backend automatically runs PostgreSQL migrations and seeds demo airports, airplanes, flights, options, discounts, staff accounts, and webhook subscriptions.
+On startup, the backend automatically runs PostgreSQL migrations and seeds demo airports, airplanes, one-way & return flights, options, discounts, staff accounts, and webhook subscriptions.
 
 ### Service URLs
 | Interface / Service | URL |
 | :--- | :--- |
-| **Customer Web Interface** (3-field search, booking, payment, Personal Cabinet, Google OAuth2, PDFs) | `http://localhost:8080/` |
+| **Customer Web Interface** (One-way & round-trip search, interactive seat map, payments, Personal Cabinet, Google OAuth2, PDFs) | `http://localhost:8080/` |
 | **Staff Web Interface** (Gate Manager, Check-in Manager, Supervisor) | `http://localhost:8080/staff/` |
 | **Interactive OpenAPI / Swagger Docs** | `http://localhost:8080/api/v1/docs/` |
 | **Prometheus Metrics Endpoint** | `http://localhost:8080/api/v1/metrics/` |
 | **Flask Mobile WebSocket Mock Client** | `http://localhost:8080/mobile-mock/` |
 | **Flask Third-Party Webhook Inspector** | `http://localhost:8080/mock-webhook/` |
 | **Mailpit Email Inbox** (inspect tickets, PDF attachments & auto-provisioned credentials) | `http://localhost:8025/` |
+| **Jaeger Distributed Tracing UI** (optional: `docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile observability up`) | `http://localhost:16686/` |
 
 ## Seeded Demo Accounts & Test Cards
 
@@ -55,7 +56,7 @@ On startup, the backend automatically runs PostgreSQL migrations and seeds demo 
 - **Google OAuth2 (Dev Mode)**: Click **Continue with Google** in Personal Cabinet (dev mock enabled in `dev`/`test`, strictly disabled in `staging`/`prod`)
 - **Promo Codes**: `WELCOME10` (10% off), `FLY50` (`$50` off)
 
-### Emulated Payment Gateway Test Cards
+### Payment Gateway Test Cards (`PAYMENT_PROVIDER=emulated` or `stripe`)
 | Card Number | Simulated Outcome |
 | :--- | :--- |
 | `4242 4242 4242 4242` | Approved (`SUCCEEDED`) |
@@ -75,12 +76,17 @@ Measured via `make benchmark` (`200` requests/endpoint through Nginx -> Gunicorn
 ## Running Tests & Quality Checks
 
 ```bash
-# Lint & SAST security scan (ruff + bandit)
+# Lint, static type checking & SAST security scan (ruff + mypy + bandit)
 make lint
+make typecheck
 make security
 
-# Run isolated test environment (ephemeral tmpfs PostgreSQL + Redis + coverage)
+# Run isolated backend test environment (ephemeral tmpfs PostgreSQL + Redis + 90% coverage gate)
 make test-env
+
+# Run Flask microservice tests (with coverage gates) & frontend Vitest unit tests
+make test-flask
+make test-frontend
 
 # Validate all 5 Docker Compose environment configs (base, dev, test, staging, prod)
 make validate-envs
