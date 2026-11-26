@@ -5,7 +5,9 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 APP_ENV = os.environ.get("APP_ENV", "dev")
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "djangoair-insecure-dev-secret-key")
+SECRET_KEY = os.environ.get(
+    "DJANGO_SECRET_KEY", "djangoair-insecure-dev-secret-key-min-32-bytes-rfc7518"
+)
 DEBUG = os.environ.get("DJANGO_DEBUG", "0") == "1"
 ALLOWED_HOSTS = [
     h.strip()

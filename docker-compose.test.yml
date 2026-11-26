@@ -26,4 +26,4 @@ services:
       POSTGRES_PASSWORD: djangoair_test_secret
       POSTGRES_HOST: postgres
       COVERAGE_FILE: /tmp/.coverage
-    command: pytest -v --cov=apps --cov-report=term-missing
+    command: pytest -v --cov=apps --cov-report=term-missing --cov-fail-under=90
