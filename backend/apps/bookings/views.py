@@ -50,6 +50,10 @@ class BookingCreateView(APIView):
             option_ids=data.get("option_ids", []),
             discount_code=data.get("discount_code") or None,
             authenticated_user=request.user if request.user.is_authenticated else None,
+            return_flight_id=data.get("return_flight_id") or None,
+            return_seat_type_id=data.get("return_seat_type_id") or None,
+            hold_token=data.get("hold_token") or None,
+            return_hold_token=data.get("return_hold_token") or None,
         )
         BOOKINGS_CREATED_TOTAL.inc()
         booking = (

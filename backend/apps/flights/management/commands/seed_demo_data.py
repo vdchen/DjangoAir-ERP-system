@@ -146,7 +146,9 @@ class Command(BaseCommand):
         base_day = now.replace(hour=0)
         routes = [
             ("DA101", "JFK", "LHR", "DA-787C", 7, Decimal("420.00"), "B12"),
+            ("DA102", "LHR", "JFK", "DA-787C", 7, Decimal("430.00"), "B14"),
             ("DA204", "JFK", "CDG", "DA-787C", 7, Decimal("440.00"), "A4"),
+            ("DA205", "CDG", "JFK", "DA-787C", 7, Decimal("445.00"), "A6"),
             ("DA310", "LHR", "BER", "DA-320B", 2, Decimal("150.00"), "C8"),
             ("DA415", "CDG", "DXB", "DA-787C", 6, Decimal("510.00"), "D2"),
             ("DA520", "BER", "LHR", "DA-737A", 2, Decimal("145.00"), "A9"),
@@ -156,7 +158,7 @@ class Command(BaseCommand):
         created_upcoming = None
         for day_offset in range(1, 6):
             for idx, (fnum, orig, dest, reg, dur_h, price, gate) in enumerate(routes):
-                dep = base_day + timedelta(days=day_offset, hours=8 + (idx * 2))
+                dep = base_day + timedelta(days=day_offset, hours=6 + (idx * 2))
                 arr = dep + timedelta(hours=dur_h)
                 code = f"{fnum}-{day_offset}"
                 flight, created = Flight.objects.get_or_create(

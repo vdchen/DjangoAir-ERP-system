@@ -117,4 +117,39 @@ test.describe("DjangoAir ERP End-to-End Browser Flows", () => {
     await page.getByRole("button", { name: "Add Option" }).click();
     await expect(page.getByText(optName)).toBeVisible();
   });
+
+  test("Round-Trip search + Interactive Cabin Seat Map (Redis TTL hold) issues 2 leg tickets", async ({
+    page,
+  }) => {
+    await page.goto("/");
+
+    await page.click("#trip-type-roundtrip");
+    await page.selectOption("#search-origin", "JFK");
+    await page.selectOption("#search-destination", "LHR");
+    await page.click("#search-submit-btn");
+
+    // Select outbound seat class -> interactive cabin seat map loads
+    const outboundCard = page.locator(".da-seat-card:not(.da-return-seat-card)").first();
+    await expect(outboundCard).toBeVisible();
+    await outboundCard.click();
+
+    const outboundSeatBtn = page.locator(".da-seat-map-panel .da-cabin-seat:not([disabled])").first();
+    await expect(outboundSeatBtn).toBeVisible();
+    const chosenOutSeat = (await outboundSeatBtn.getAttribute("data-seat")).trim();
+    await outboundSeatBtn.click();
+    await expect(page.getByText(`Held: ${chosenOutSeat}`)).toBeVisible();
+
+    // Select return flight seat class
+    const returnCard = page.locator(".da-return-seat-card").first();
+    await expect(returnCard).toBeVisible();
+    await returnCard.click();
+
+    await page.click("#continue-checkout-btn");
+    await page.fill("#contact-email", `roundtrip.e2e.${Date.now()}@example.com`);
+    await page.click("#pay-and-book-btn");
+
+    await expect(page.getByText("Booking Confirmed & Paid")).toBeVisible();
+    await expect(page.locator(".da-ticket-code")).toHaveCount(2);
+    await expect(page.getByText(`Seat ${chosenOutSeat}`)).toBeVisible();
+  });
 });
