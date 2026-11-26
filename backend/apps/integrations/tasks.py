@@ -1,12 +1,16 @@
 import json
 import logging
+import time
 
+import redis
 import requests
 from celery import shared_task
 from django.conf import settings
+from django.utils import timezone
 
-from .events import compute_webhook_signature
-from .models import WebhookDelivery, WebhookSubscription
+from .events import compute_webhook_signature, compute_webhook_signature_v2
+from .metrics import OUTBOX_EVENTS_TOTAL
+from .models import OutboxEvent, OutboxStatus, WebhookDelivery, WebhookSubscription
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +19,7 @@ logger = logging.getLogger(__name__)
 def dispatch_webhook_event(event_type: str, envelope: dict) -> dict:
     subscriptions = WebhookSubscription.objects.filter(is_active=True)
     body_bytes = json.dumps(envelope, default=str, separators=(",", ":")).encode("utf-8")
+    timestamp_str = str(int(time.time()))
     delivered = 0
     failed = 0
 
@@ -22,10 +27,13 @@ def dispatch_webhook_event(event_type: str, envelope: dict) -> dict:
         if not sub.matches_event(event_type):
             continue
         signature = compute_webhook_signature(sub.secret, body_bytes)
+        signature_v2 = compute_webhook_signature_v2(sub.secret, timestamp_str, body_bytes)
         headers = {
             "Content-Type": "application/json",
             "X-DjangoAir-Event": event_type,
+            "X-DjangoAir-Timestamp": timestamp_str,
             "X-DjangoAir-Signature": signature,
+            "X-DjangoAir-Signature-V2": signature_v2,
         }
         try:
             resp = requests.post(
@@ -60,3 +68,43 @@ def dispatch_webhook_event(event_type: str, envelope: dict) -> dict:
             failed += 1
 
     return {"event": event_type, "delivered": delivered, "failed": failed}
+
+
+@shared_task(name="integrations.relay_outbox_event")
+def relay_outbox_event(outbox_id: str) -> dict:
+    """Relay a committed OutboxEvent to Redis Pub/Sub and outbound webhooks with DLQ tracking."""
+    outbox = OutboxEvent.objects.filter(pk=outbox_id).first()
+    if not outbox or outbox.status == OutboxStatus.PUBLISHED:
+        return {"status": "skipped", "outbox_id": outbox_id}
+
+    outbox.attempts += 1
+    errors = []
+
+    # 1. Publish to Redis Pub/Sub for Flask Mobile WebSocket subscribers
+    try:
+        client = redis.Redis.from_url(settings.REDIS_URL, socket_connect_timeout=1, socket_timeout=1)
+        client.publish(settings.REDIS_EVENTS_CHANNEL, json.dumps(outbox.payload, default=str))
+    except Exception as exc:
+        logger.debug("Redis publish unavailable for outbox %s: %s", outbox.id, exc)
+
+    # 2. Deliver to active webhook subscriptions
+    wh_result = dispatch_webhook_event(outbox.event_type, outbox.payload)
+    if wh_result["failed"] > 0:
+        errors.append(f"{wh_result['failed']} webhook delivery failure(s)")
+
+    if not errors:
+        outbox.status = OutboxStatus.PUBLISHED
+        outbox.published_at = timezone.now()
+        outbox.last_error = ""
+        outbox.save(update_fields=["status", "attempts", "published_at", "last_error"])
+        OUTBOX_EVENTS_TOTAL.labels(event_type=outbox.event_type, status=OutboxStatus.PUBLISHED).inc()
+        return {"status": "published", "outbox_id": str(outbox.id), "webhooks": wh_result}
+
+    outbox.last_error = "; ".join(errors)
+    if outbox.attempts >= outbox.max_attempts:
+        outbox.status = OutboxStatus.DEAD_LETTER
+        OUTBOX_EVENTS_TOTAL.labels(
+            event_type=outbox.event_type, status=OutboxStatus.DEAD_LETTER
+        ).inc()
+    outbox.save(update_fields=["status", "attempts", "last_error"])
+    return {"status": outbox.status, "outbox_id": str(outbox.id), "error": outbox.last_error}

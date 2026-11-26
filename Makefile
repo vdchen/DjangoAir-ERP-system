@@ -1,4 +1,4 @@
-.PHONY: up up-dev down logs migrate seed lint security test test-env test-backend test-flask build-frontend validate-envs smoke
+.PHONY: up up-dev down logs migrate seed lint security test test-env test-backend test-flask test-frontend build-frontend validate-envs smoke e2e benchmark
 
 up:
 	docker compose up -d --build
@@ -29,13 +29,16 @@ test-env:
 	docker compose -f docker-compose.yml -f docker-compose.test.yml down -v
 
 test-backend:
-	docker compose run --rm -e DJANGO_SETTINGS_MODULE=config.settings.test backend pytest -v --cov=apps --cov-report=term-missing
+	docker compose run --rm -e DJANGO_SETTINGS_MODULE=config.settings.test -e COVERAGE_FILE=/tmp/.coverage backend pytest -v --cov=apps --cov-report=term-missing --cov-fail-under=90
 
 test-flask:
-	docker compose run --rm --no-deps mobile_ws pytest -v
-	docker compose run --rm --no-deps webhook_mock pytest -v
+	docker compose run --rm --no-deps -e COVERAGE_FILE=/tmp/.coverage mobile_ws pytest -v --cov=app --cov-report=term-missing --cov-fail-under=70
+	docker compose run --rm --no-deps -e COVERAGE_FILE=/tmp/.coverage webhook_mock pytest -v --cov=app --cov-report=term-missing --cov-fail-under=90
 
-test: test-backend test-flask
+test-frontend:
+	cd frontend && npm test
+
+test: test-backend test-flask test-frontend
 
 validate-envs:
 	docker compose config -q
@@ -49,3 +52,9 @@ build-frontend:
 
 smoke:
 	python3 scripts/e2e_smoke.py
+
+e2e:
+	cd e2e && npm install && npx playwright install chromium && npx playwright test
+
+benchmark:
+	python3 loadtest/benchmark.py --requests 200 --concurrency 16

@@ -9,6 +9,8 @@ from rest_framework.views import APIView
 from apps.accounts.models import CustomerProfile
 from apps.accounts.permissions import IsCheckInManagerOrAbove, IsGateManagerOrAbove
 from apps.accounts.serializers import UserSerializer
+from apps.integrations.idempotency import idempotent_endpoint
+from apps.integrations.metrics import BOOKINGS_CREATED_TOTAL
 
 from .models import Booking, Discount, Ticket
 from .serializers import (
@@ -35,6 +37,7 @@ def _ticket_queryset():
 class BookingCreateView(APIView):
     permission_classes = [AllowAny]
 
+    @idempotent_endpoint
     def post(self, request):
         serializer = BookingCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -48,6 +51,7 @@ class BookingCreateView(APIView):
             discount_code=data.get("discount_code") or None,
             authenticated_user=request.user if request.user.is_authenticated else None,
         )
+        BOOKINGS_CREATED_TOTAL.inc()
         booking = (
             Booking.objects.select_related("discount")
             .prefetch_related(
@@ -140,6 +144,29 @@ class CabinetOnlineCheckInView(APIView):
         ticket = online_check_in(ticket_code=ticket_code, user=request.user)
         ticket = _ticket_queryset().get(pk=ticket.pk)
         return Response(TicketSerializer(ticket).data, status=status.HTTP_200_OK)
+
+
+class CabinetBoardingPassPdfView(APIView):
+    """Download a printable PDF boarding pass with embedded QR code for an owned ticket."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, ticket_code: str):
+        from django.http import HttpResponse
+
+        from .pdf import generate_boarding_pass_pdf
+
+        ticket = get_object_or_404(
+            _ticket_queryset(),
+            ticket_code__iexact=ticket_code.strip(),
+            booking__user=request.user,
+        )
+        pdf_bytes = generate_boarding_pass_pdf(ticket)
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = (
+            f'attachment; filename="boarding-pass-{ticket.ticket_code}.pdf"'
+        )
+        return response
 
 
 class StaffTicketListView(generics.ListAPIView):

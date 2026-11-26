@@ -8,6 +8,7 @@ PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True
+GOOGLE_OAUTH_DEV_MOCK_ENABLED = True
 
 # Allow running tests natively with SQLite if PostgreSQL is not specified
 if os.environ.get("USE_SQLITE_FOR_TESTS", "0") == "1":

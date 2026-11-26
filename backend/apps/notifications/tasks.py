@@ -2,7 +2,7 @@ import logging
 
 from celery import shared_task
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import EmailMessage, send_mail
 
 from .models import EmailLog
 
@@ -16,6 +16,7 @@ def send_booking_confirmation_email(
     invoice_number: str | None = None,
 ) -> dict:
     from apps.bookings.models import Booking
+    from apps.bookings.pdf import generate_boarding_pass_pdf, generate_invoice_pdf
 
     booking = (
         Booking.objects.select_related("user", "discount")
@@ -25,6 +26,7 @@ def send_booking_confirmation_email(
             "tickets__passenger",
             "tickets__seat_type",
             "tickets__ticket_options__option",
+            "payments",
         )
         .get(pk=booking_id)
     )
@@ -69,18 +71,32 @@ def send_booking_confirmation_email(
     else:
         lines.append("Password: Use your existing Personal Cabinet password.")
 
-    lines.append("Sign in at your Personal Cabinet to view flights, balance, and complete online check-in.")
+    lines.append(
+        "Your QR Boarding Pass(es) and itemized Invoice PDF are attached to this email."
+    )
     body = "\n".join(lines)
     subject = f"DjangoAir Tickets & Bill — Booking {booking.booking_reference}"
 
     try:
-        send_mail(
+        email_msg = EmailMessage(
             subject=subject,
-            message=body,
+            body=body,
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[booking.contact_email],
-            fail_silently=False,
+            to=[booking.contact_email],
         )
+        for ticket in booking.tickets.all():
+            pdf_bytes = generate_boarding_pass_pdf(ticket)
+            email_msg.attach(
+                f"boarding-pass-{ticket.ticket_code}.pdf", pdf_bytes, "application/pdf"
+            )
+        payment = booking.payments.filter(invoice_number=invoice_number).first() or booking.payments.first()
+        if payment:
+            inv_bytes = generate_invoice_pdf(payment)
+            email_msg.attach(
+                f"invoice-{payment.invoice_number}.pdf", inv_bytes, "application/pdf"
+            )
+
+        email_msg.send(fail_silently=False)
         EmailLog.objects.create(
             recipient=booking.contact_email,
             subject=subject,

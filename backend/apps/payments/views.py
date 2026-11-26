@@ -12,6 +12,8 @@ from apps.accounts.models import CustomerProfile
 from apps.bookings.models import Booking, BookingStatus, TicketStatus
 from apps.bookings.serializers import BookingSerializer
 from apps.integrations.events import publish_domain_event
+from apps.integrations.idempotency import idempotent_endpoint
+from apps.integrations.metrics import PAYMENTS_TOTAL
 from apps.notifications.tasks import send_booking_confirmation_email
 
 from .gateway import EmulatedGatewayProvider
@@ -24,6 +26,7 @@ class PaymentChargeView(APIView):
 
     permission_classes = [AllowAny]
 
+    @idempotent_endpoint
     @transaction.atomic
     def post(self, request):
         serializer = PaymentChargeInputSerializer(data=request.data)
@@ -50,6 +53,7 @@ class PaymentChargeView(APIView):
             try:
                 profile.debit(booking.total_amount)
             except ValueError as exc:
+                PAYMENTS_TOTAL.labels(provider="cabinet_balance", status="FAILED").inc()
                 return Response({"detail": str(exc)}, status=status.HTTP_402_PAYMENT_REQUIRED)
             payment = Payment.objects.create(
                 booking=booking,
@@ -60,6 +64,7 @@ class PaymentChargeView(APIView):
                 card_last4="BAL",
                 paid_at=timezone.now(),
             )
+            PAYMENTS_TOTAL.labels(provider="cabinet_balance", status="SUCCEEDED").inc()
         else:
             gateway = EmulatedGatewayProvider()
             result = gateway.charge(
@@ -80,6 +85,7 @@ class PaymentChargeView(APIView):
                 failure_reason=result.failure_reason,
                 paid_at=timezone.now() if result.success else None,
             )
+            PAYMENTS_TOTAL.labels(provider=result.provider, status=payment.status).inc()
             if not result.success:
                 return Response(
                     {
@@ -229,3 +235,22 @@ class CabinetBalanceTopUpView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class InvoicePdfView(APIView):
+    """Download an itemized PDF receipt/invoice for a payment."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, _request, pk):
+        from django.http import HttpResponse
+
+        from apps.bookings.pdf import generate_invoice_pdf
+
+        payment = get_object_or_404(Payment.objects.select_related("booking"), pk=pk)
+        pdf_bytes = generate_invoice_pdf(payment)
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = (
+            f'attachment; filename="invoice-{payment.invoice_number}.pdf"'
+        )
+        return response

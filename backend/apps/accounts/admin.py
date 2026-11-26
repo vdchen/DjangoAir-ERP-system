@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import CustomerProfile, User
+from .models import CustomerProfile, SocialAccount, User
 
 
 @admin.register(User)
@@ -14,3 +14,10 @@ class UserAdmin(admin.ModelAdmin):
 class CustomerProfileAdmin(admin.ModelAdmin):
     list_display = ("user", "balance", "phone", "passport_number")
     search_fields = ("user__email", "passport_number")
+
+
+@admin.register(SocialAccount)
+class SocialAccountAdmin(admin.ModelAdmin):
+    list_display = ("provider", "provider_uid", "user", "linked_at")
+    list_filter = ("provider",)
+    search_fields = ("provider_uid", "user__email")

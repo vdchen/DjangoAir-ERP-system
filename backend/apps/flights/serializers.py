@@ -44,10 +44,13 @@ class FlightListSerializer(serializers.ModelSerializer):
         return obj.total_available_seats()
 
     def get_options(self, obj: Flight):
-        qs = obj.available_options.filter(is_active=True)
-        if not qs.exists():
-            qs = Option.objects.filter(is_active=True)
-        return OptionSerializer(qs, many=True).data
+        active = [opt for opt in obj.available_options.all() if opt.is_active]
+        if not active:
+            fallback = self.context.get("default_active_options")
+            if fallback is None:
+                fallback = list(Option.objects.filter(is_active=True))
+            active = fallback
+        return OptionSerializer(active, many=True).data
 
 
 class FlightCreateSerializer(serializers.ModelSerializer):

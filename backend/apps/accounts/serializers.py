@@ -8,6 +8,7 @@ from .models import CustomerProfile, User, UserRole
 class UserSerializer(serializers.ModelSerializer):
     balance = serializers.SerializerMethodField()
     staff_rank = serializers.IntegerField(read_only=True)
+    social_providers = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -21,12 +22,24 @@ class UserSerializer(serializers.ModelSerializer):
             "is_active",
             "date_joined",
             "balance",
+            "social_providers",
         ]
-        read_only_fields = ["id", "date_joined", "staff_rank", "balance"]
+        read_only_fields = ["id", "date_joined", "staff_rank", "balance", "social_providers"]
 
     def get_balance(self, obj: User):
         profile = getattr(obj, "customer_profile", None)
         return str(profile.balance) if profile else None
+
+    def get_social_providers(self, obj: User) -> list[str]:
+        return list(obj.social_accounts.values_list("provider", flat=True))
+
+
+class GoogleOAuthLoginSerializer(serializers.Serializer):
+    id_token = serializers.CharField(required=False, allow_blank=True, default="")
+    dev_mock = serializers.BooleanField(required=False, default=False)
+    email = serializers.EmailField(required=False, allow_blank=True, default="")
+    first_name = serializers.CharField(required=False, allow_blank=True, default="")
+    last_name = serializers.CharField(required=False, allow_blank=True, default="")
 
 
 class LoginSerializer(serializers.Serializer):

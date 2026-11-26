@@ -46,7 +46,28 @@ export function createApiClient(tokenStorageKey) {
     return data;
   }
 
-  return { getToken, setToken, request };
+  async function downloadBlob(path, filename) {
+    const headers = {};
+    const token = getToken();
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const res = await fetch(`${API_BASE}${path}`, { method: "GET", headers });
+    if (!res.ok) {
+      throw new Error(`Download failed (${res.status})`);
+    }
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  }
+
+  return { getToken, setToken, request, downloadBlob };
 }
 
 export function formatDateTime(isoStr) {
@@ -64,6 +85,6 @@ export function formatDateTime(isoStr) {
 
 export function defaultTomorrowDate() {
   const d = new Date();
-  d.setDate(d.getDate() + 1);
+  d.setUTCDate(d.getUTCDate() + 1);
   return d.toISOString().slice(0, 10);
 }
